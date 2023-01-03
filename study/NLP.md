@@ -14,12 +14,12 @@
         (원핫벡터는 워드 임베딩 기법과 대비되는 특성으로 어떤 단어쌍이든 모두 유클리드 거리가 루트2로 표현되고 내적값 혹은 내적 코사인유사도는 0으로 모두 동일하게 계산됨 -> 즉 단어의 의미와 상관없이 모두가 동일한 관계를 가지는 형태로 단어 표현)
         3. 문장에 있는 단어들의 원핫벡터를 모두 더하여 문장 표현
         (즉, 단어들을 Bag에 넣는다고 생각)
-    - Bag-of-words 예시
+    - Bag-of-words 예시    
         ![](./img/Bag-of-words.jpg)
 - NaiveBayes Classifier : Bage-of-words를 활용한 대표적인 문서 분류 기법
-    - 이론
+    - 이론    
         ![](./img/NaiveBayes_Classifier.jpg)
-    - 예시
+    - 예시    
         ![](./img/NaiveBayes_Classifier1.jpg)
         ![](./img/NaiveBayes_Classifier2.jpg)
 
