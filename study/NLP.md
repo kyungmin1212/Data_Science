@@ -15,13 +15,13 @@
         3. 문장에 있는 단어들의 원핫벡터를 모두 더하여 문장 표현
         (즉, 단어들을 Bag에 넣는다고 생각)
     - Bag-of-words 예시    
-        ![](./img/Bag-of-words.jpg)
+        ![](./img/Bag-of-words.jpg){: width="70%" height="70%"}
 - NaiveBayes Classifier : Bage-of-words를 활용한 대표적인 문서 분류 기법
     - 이론    
-        ![](./img/NaiveBayes_Classifier.jpg)
+        ![](./img/NaiveBayes_Classifier.jpg){: width="50%" height="50%"}
     - 예시    
-        ![](./img/NaiveBayes_Classifier1.jpg)
-        ![](./img/NaiveBayes_Classifier2.jpg)
+        ![](./img/NaiveBayes_Classifier1.jpg){: width="100%" height="100%"}
+        ![](./img/NaiveBayes_Classifier2.jpg){: width="100%" height="100%"}
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
