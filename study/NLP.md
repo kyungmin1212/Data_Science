@@ -123,26 +123,26 @@
         - CBOW Dataset
             ```python
             class CBOWDataset(Dataset):
-            def __init__(self, train_tokenized, window_size=2):
-                self.x = []
-                self.y = []
+                def __init__(self, train_tokenized, window_size=2):
+                    self.x = []
+                    self.y = []
 
-                for tokens in tqdm(train_tokenized):
-                    # token_ids 는 한 문장 안에 있는 token들의 id 리스트
-                    token_ids = [w2i[token] for token in tokens]
-                    for i, id in enumerate(token_ids):
-                        if i-window_size >= 0 and i+window_size < len(token_ids): # 범위 안에 있는것들만 가져온다.
-                            self.x.append(token_ids[i-window_size:i] + token_ids[i+1:i+window_size+1]) # 주변단어 4개
-                            self.y.append(id) # 중심단어 1개
+                    for tokens in tqdm(train_tokenized):
+                        # token_ids 는 한 문장 안에 있는 token들의 id 리스트
+                        token_ids = [w2i[token] for token in tokens]
+                        for i, id in enumerate(token_ids):
+                            if i-window_size >= 0 and i+window_size < len(token_ids): # 범위 안에 있는것들만 가져온다.
+                                self.x.append(token_ids[i-window_size:i] + token_ids[i+1:i+window_size+1]) # 주변단어 4개
+                                self.y.append(id) # 중심단어 1개
 
-                self.x = torch.LongTensor(self.x)  # (전체 데이터 개수 * 2 * window_size)
-                self.y = torch.LongTensor(self.y)  # (전체 데이터 개수)
+                    self.x = torch.LongTensor(self.x)  # (전체 데이터 개수 * 2 * window_size)
+                    self.y = torch.LongTensor(self.y)  # (전체 데이터 개수)
 
-            def __len__(self):
-                return self.x.shape[0]
+                def __len__(self):
+                    return self.x.shape[0]
 
-            def __getitem__(self, idx):
-                return self.x[idx], self.y[idx]
+                def __getitem__(self, idx):
+                    return self.x[idx], self.y[idx]
             ```
         - SkipGram Dataset
             ```python
