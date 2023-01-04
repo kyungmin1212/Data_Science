@@ -2,7 +2,8 @@
 
 - [Bag-of-words 와 NaiveBayes Classifier](#1)
 - [Word Embedding(Word2Vec, Glove)(cf. CBOW, Skip-gram)](#2)
-
+- [RNN(Recurrent Neural Network)](#3)
+- [LSTM(Long Short-Term Memory), GRU(Gated Recurrent Unit)](#4)
 ---
 
 ## #1
@@ -345,10 +346,28 @@
     - 단기기억(Short-Term Memory)을 보다 오래(Long) 기억할 수 있도록 한다는 뜻으로 Long Short-Term Memory 라고 이름을 지음
     - 기본 구조    
         ![](./img/LSTM.jpg)
-    - 전체 연산 과정    
+    - 전체 연산 과정
+        - c는 장기 기억 상태, h는 단기 기억 상태라고 볼 수 있음.
+        - forget gate를 통해서 0~1 사이값을 얻어내는데 이전 기억 $c_{t-1}$ 을 얼마나 기억하고 가져갈지를 정해줌(0이면 완전히 이전 기억 삭제, 1이면 기존의 기억을 유지한채로 지나감)
+        - input gate를 통해서 현재 입력과 이전 출력의 결과를 시그모이드와 tanh를 각각 통과시켜 0~1사이 값과 -1~1 사이값을 얻어내는데 현재 입력과 이전 출력의 결과를 얼마나 c에 저장할지(0~1)와 어떤 정보를 c에 저장할지 후보(-1~1)를 정함
+        - output gate를 통해서 현재 입력과 이전 출력의 결과를 0~1 사이값을 얻어내는데 장기기억부분의 정보인 $c_t$ 를 얼마나 꺼내쓸지를 정해줌    
+        ($c_t$에 tanh를 적용시켜 -1~1 사이 값으로 만들어주고 $c_t$에는 이미 현재 셀의 정보가 들어가 있기 때문에(input gate를 통해) 현재 입력과 이전 출력의 결과를 통해 얼마만큼 $c_t$에서 정보를 꺼내써야 좋을지를 output gate가 정함)    
         ![](./img/LSTM1.jpg)
         ![](./img/LSTM2.jpg)
         ![](./img/LSTM3.jpg)
+        ![](./img/LSTM4.jpg)
+        ![](./img/LSTM5.jpg)
+    
+- GRU
+    - GRU는 LSTM의 모델 구조를 조금 더 경량화 해서 적은 메모리 요구량과 빠른 계산시간이 가능하도록 만든 모델
+    - LSTM에서 두가지 종류의 벡터로 존재하던 cell state vector(장기기억)와 hidden state vector(단기기억)를 하나로 합쳐서 hidden state vector(cell state vector와 비슷한 역할을 함)만이 존재한다는것이 가장 큰 특징
+    - 경량화를 진행했음에도 LSTM에 뒤지지 않고 비슷한 성능을 보여줌
+    - 구조    
+        ![](./img/GRU.jpg)
+
+
+- Backpropagation in LSTM/GRU
+    - 전 타임스텝의 cell state vector에 현재 입력값에 따른 매번 다르게 나오는 forget gate 결과값을 곱해주게 되면 반복적인 연산이 아니게 되고, 현재 타임 스텝에서 필요로 하는 정보를 곱셈이 아닌 덧셈을 통해서 만들어주기 때문에 gradient vanishing/explosion 문제가 사라지게 됨 (original RNN 처럼 단순히 똑같은 행렬을 계속해서 곱해주는 연산이 아님)
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
