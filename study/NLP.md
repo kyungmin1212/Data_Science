@@ -301,5 +301,50 @@
             print(f"Word: {word}")
             print(emb.squeeze(0))
         ```
+
+#### References
+- [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
+
+---
+
+## #3
+
+### RNN(Recurrent Neural Network)
+- RNN 종류
+    <img src="./img/RNN.jpg" width="70%" height="70%">
+- RNN 기본 구조
+    <img src="./img/RNN1.jpg" width="70%" height="70%">
+- RNN 연산 과정
+    <img src="./img/RNN2.jpg" width="70%" height="70%">
+- RNN many-to-many 학습 추론 과정 예시
+    - hello 단어를 통한 설명
+    - 학습과정
+        <img src="./img/RNN3.jpg" width="70%" height="70%">
+    - 추론과정
+        - h라는 문자열 하나가 들어가게 되면 h의 결과값 y가 다음 input으로 들어가게 되고 또 다시 그 input의 결과값이 다시 다음 input으로 들어가게 됨
+        <img src="./img/RNN4.jpg" width="70%" height="70%">
+- Backpropagation through time (BPTT)
+    - 각 타임 스텝마다 예측값과 실제값의 비교를 통한 loss function을 통해서 전체 네트워크가 학습을 진행됨 -> 전체 시퀀스의 길이가 길어지게 되면 메모리 문제등으로 인하여 학습이 어려워짐
+    - 실제 한번 학습을 진행하기 위해서는 하나의 입력의 output을 구하고 그 output과 입력을 통해서 다시 output을 구하고 이런식으로 모든 output을 구하게 되면 마지막 타임스텝쯤에는 제일 처음의 타임 스텝부터 동일한 matrix가 매 타임 스텝마다 곱해지게 되면서 메모리 문제가 발생할수 있음 또는 Vanishing/Exploding Gradient Problem 발생 가능 
+    - truncation을 이용하여 제한된 길이의 시퀀스 만으로 학습을 진행하는 방법을 사용(Truncated-BPTT)
+        <img src="./img/RNN5.jpg" width="70%" height="70%">
+        
+#### References
+- [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
+
+---
+
+## #4
+
+### LSTM(Long Short-Term Memory), GRU(Gated Recurrent Unit)
+- LSTM
+    - LSTM은 original RNN이 가지는 문제인 Gradient Vanishing/Explosion 를 해결하고 타임 스텝이 먼 경우에도 필요로 하는 정보를 보다 효과적으로 처리하고 학습할 수 있도록 하는 모델
+    - 단기기억(Short-Term Memory)을 보다 오래(Long) 기억할 수 있도록 한다는 뜻으로 Long Short-Term Memory 라고 이름을 지음
+    - 기본 구조
+        <img src="./img/LSTM.jpg" width="70%" height="70%">
+    - 전체 연산 과정
+        <img src="./img/LSTM1.jpg" width="70%" height="70%">
+        <img src="./img/LSTM2.jpg" width="70%" height="70%">
+        <img src="./img/LSTM3.jpg" width="70%" height="70%">
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
