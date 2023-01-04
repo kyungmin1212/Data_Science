@@ -15,14 +15,15 @@
         (원핫벡터는 워드 임베딩 기법과 대비되는 특성으로 어떤 단어쌍이든 모두 유클리드 거리가 루트2로 표현되고 내적값 혹은 내적 코사인유사도는 0으로 모두 동일하게 계산됨 -> 즉 단어의 의미와 상관없이 모두가 동일한 관계를 가지는 형태로 단어 표현)
         3. 문장에 있는 단어들의 원핫벡터를 모두 더하여 문장 표현
         (즉, 단어들을 Bag에 넣는다고 생각)
-    - Bag-of-words 예시    
-        <img src="./img/Bag-of-words.jpg" width="70%" height="70%">    
+    - Bag-of-words 예시
+        ![](./img/Bag-of-words.jpg)
 - NaiveBayes Classifier : Bag-of-words를 활용한 대표적인 문서 분류 기법
-    - 이론    
-        <img src="./img/NaiveBayes_Classifier.jpg" width="70%" height="70%">    
-    - 예시    
-        <img src="./img/NaiveBayes_Classifier1.jpg" width="50%" height="50%">    
-        <img src="./img/NaiveBayes_Classifier2.jpg" width="50%" height="50%">    
+    - 이론
+        ![](./img/NaiveBayes_Classifier.jpg)
+    - 예시
+        ![](./img/NaiveBayes_Classifier1.jpg)
+        ![](./img/NaiveBayes_Classifier2.jpg)
+  
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
@@ -55,20 +56,21 @@
             - 입출력 쌍 : (I,study) // (study,I), (study,math) // (math,study)
         3. 입출력 레이어의 노드 수는 사전의 사이즈와 같음 (여기선 문장의 단어수가 3개이므로 vocabulary size = 3)
         4. 입출력 순서쌍 사이에 두개의 입출력 레이어와 소프트맥스를 넣고 학습 진행(vocabulary size 차원 -> vocabulary size 보다 작은 차원 -> vocabulary size 차원)
-        <img src="./img/Word2Vec.jpg" width="70%" height="70%">    
-        
+        ![](./img/Word2Vec.jpg)
+
         (우리는 이 중에서 input 단어가 들어갔을때 W1을 거쳐 hidden layer에 존재하는 벡터를 임베딩 벡터로 사용)
     - Property of Word2Vec
         - 단어들 사이에 관계를 표현해보면 비슷한 관계는 같은 벡터를 가짐
-            <img src="./img/Word2Vec1.jpg" width="70%" height="70%">    
+            ![](./img/Word2Vec1.jpg)
+
 - GloVe
     - Word2Vec과 더불어 많이 쓰이는 워드 임베딩 방법
     - GloVe는 어떠한 단어쌍이 동시에 등장하는 횟수를 미리 계산해서 중복되는 계산을 줄여줄수 있다는 장점이 존재하여 상대적으로 더 빠르고 더 적은 데이터에 대해서도 더 잘 동작하는 특성을 보임
     - Glove 과정
         - 각 입출력 단어 쌍들에 대해 그 학습 데이터에서 그 두 단어가 한 윈도우 내에서 총 몇 번 동시에 등장했는지를 사전에 미리 계산 $P_{ij}$
         - 입력워드의 임베딩 벡터 $u_i$ 와 출력워드의 임베딩 벡터 $v_j$의 내적값이 한 윈도우 안에서 두 단어가 동시에 나타난 횟수인 $P_{ij}$에 가까워질 수 있도록 학습 진행함
-    - Glove 수식    
-        <img src="./img/glove.jpg" width="50%" height="50%">    
+    - Glove 수식
+        ![](./img/glove.jpg)
 
 - Word2Vec 실습 (+ CBOW, SkipGram)
     - 실습 데이터
@@ -312,23 +314,23 @@
 
 ### RNN(Recurrent Neural Network)
 - RNN 종류
-    <img src="./img/rnn.jpg" width="70%" height="70%">    
+    ![](./img/rnn.jpg)
 - RNN 기본 구조
-    <img src="./img/RNN1.jpg" width="70%" height="70%">    
+    ![](./img/RNN1.jpg)
 - RNN 연산 과정
-    <img src="./img/RNN2.jpg" width="70%" height="70%">    
+    ![](./img/RNN2.jpg)
 - RNN many-to-many 학습 추론 과정 예시
     - hello 단어를 통한 설명
     - 학습과정
-        <img src="./img/RNN3.jpg" width="70%" height="70%">    
+        ![](./img/RNN3.jpg)
     - 추론과정
         - h라는 문자열 하나가 들어가게 되면 h의 결과값 y가 다음 input으로 들어가게 되고 또 다시 그 input의 결과값이 다시 다음 input으로 들어가게 됨
-        <img src="./img/RNN4.jpg" width="70%" height="70%">    
+        ![](./img/RNN4.jpg)
 - Backpropagation through time (BPTT)
     - 각 타임 스텝마다 예측값과 실제값의 비교를 통한 loss function을 통해서 전체 네트워크가 학습을 진행됨 -> 전체 시퀀스의 길이가 길어지게 되면 메모리 문제등으로 인하여 학습이 어려워짐
     - 실제 한번 학습을 진행하기 위해서는 하나의 입력의 output을 구하고 그 output과 입력을 통해서 다시 output을 구하고 이런식으로 모든 output을 구하게 되면 마지막 타임스텝쯤에는 제일 처음의 타임 스텝부터 동일한 matrix가 매 타임 스텝마다 곱해지게 되면서 메모리 문제가 발생할수 있음 또는 Vanishing/Exploding Gradient Problem 발생 가능 
     - truncation을 이용하여 제한된 길이의 시퀀스 만으로 학습을 진행하는 방법을 사용(Truncated-BPTT)
-        <img src="./img/RNN5.jpg" width="70%" height="70%">    
+        ![](./img/RNN5.jpg)
         
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
@@ -342,10 +344,11 @@
     - LSTM은 original RNN이 가지는 문제인 Gradient Vanishing/Explosion 를 해결하고 타임 스텝이 먼 경우에도 필요로 하는 정보를 보다 효과적으로 처리하고 학습할 수 있도록 하는 모델
     - 단기기억(Short-Term Memory)을 보다 오래(Long) 기억할 수 있도록 한다는 뜻으로 Long Short-Term Memory 라고 이름을 지음
     - 기본 구조
-        <img src="./img/LSTM.jpg" width="70%" height="70%">    
+        ![](./img/LSTM.jpg)
     - 전체 연산 과정
-        <img src="./img/LSTM1.jpg" width="70%" height="70%">    
-        <img src="./img/LSTM2.jpg" width="70%" height="70%">    
-        <img src="./img/LSTM3.jpg" width="70%" height="70%">    
+        ![](./img/LSTM1.jpg)
+        ![](./img/LSTM2.jpg)
+        ![](./img/LSTM3.jpg)
+
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
