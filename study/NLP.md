@@ -56,6 +56,7 @@
         3. 입출력 레이어의 노드 수는 사전의 사이즈와 같음 (여기선 문장의 단어수가 3개이므로 vocabulary size = 3)
         4. 입출력 순서쌍 사이에 두개의 입출력 레이어와 소프트맥스를 넣고 학습 진행(vocabulary size 차원 -> vocabulary size 보다 작은 차원 -> vocabulary size 차원)
         <img src="./img/Word2Vec.jpg" width="70%" height="70%">    
+        
         (우리는 이 중에서 input 단어가 들어갔을때 W1을 거쳐 hidden layer에 존재하는 벡터를 임베딩 벡터로 사용)
     - Property of Word2Vec
         - 단어들 사이에 관계를 표현해보면 비슷한 관계는 같은 벡터를 가짐
