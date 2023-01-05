@@ -332,7 +332,111 @@
     - 실제 한번 학습을 진행하기 위해서는 하나의 입력의 output을 구하고 그 output과 입력을 통해서 다시 output을 구하고 이런식으로 모든 output을 구하게 되면 마지막 타임스텝쯤에는 제일 처음의 타임 스텝부터 동일한 matrix가 매 타임 스텝마다 곱해지게 되면서 메모리 문제가 발생할수 있음 또는 Vanishing/Exploding Gradient Problem 발생 가능 
     - truncation을 이용하여 제한된 길이의 시퀀스 만으로 학습을 진행하는 방법을 사용(Truncated-BPTT)    
         ![](./img/RNN5.jpg)
-        
+
+- RNN 실습
+    - 샘플 데이터 (전체 vocab_size = 100, pad_id = 0)
+        ```python
+        vocab_size = 100
+        pad_id = 0
+
+        data = [
+        [85,14,80,34,99,20,31,65,53,86,3,58,30,4,11,6,50,71,74,13],
+        [62,76,79,66,32],
+        [93,77,16,67,46,74,24,70],
+        [19,83,88,22,57,40,75,82,4,46],
+        [70,28,30,24,76,84,92,76,77,51,7,20,82,94,57],
+        [58,13,40,61,88,18,92,89,8,14,61,67,49,59,45,12,47,5],
+        [22,5,21,84,39,6,9,84,36,59,32,30,69,70,82,56,1],
+        [94,21,79,24,3,86],
+        [80,80,33,63,34,63],
+        [87,32,79,65,2,96,43,80,85,20,41,52,95,50,35,96,24,80]
+        ]
+        ```
+    - padding 처리
+        ```python
+        max_len = len(max(data, key=len))
+        print(f"Maximum sequence length: {max_len}")
+
+        valid_lens = []
+        for i, seq in enumerate(tqdm(data)):
+            valid_lens.append(len(seq)) # padding 전 길이 저장
+            if len(seq) < max_len:
+                data[i] = seq + [pad_id] * (max_len - len(seq)) # pad_id로 data max 길이와 동일하게 padding 처리
+        ```
+        ```python
+        # B: batch size, L: max_len
+        batch = torch.LongTensor(data)  # (B, L)
+        batch_lens = torch.LongTensor(valid_lens)  # (B)
+        ```
+        (주어진 데이터 전체를 batch 1개로 보기(batch size = len(data)))
+    - RNN에 넣기 위한 word embedding 처리(이미 학습된 word2vec이나 glove같은 embedding 모델을 불러와서 사용해도 됨)
+        ```python
+        embedding_size = 256
+        embedding = nn.Embedding(vocab_size, embedding_size)
+
+        # d_w: embedding size
+        batch_emb = embedding(batch)  # (B, L, d_w)
+        ```
+    - RNN 모델 생성 (배치 1개 넣어주기)
+        ```python
+        hidden_size = 512  # RNN의 hidden size
+        num_layers = 1  # 쌓을 RNN layer의 개수
+        num_dirs = 1  # 1: 단방향 RNN, 2: 양방향 RNN
+
+        rnn = nn.RNN(
+            input_size=embedding_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            # batch_first = True #(False 가 default) -> False면 rnn의 입력순서가 (seq,batch,feature) 이어야함. feature은 embedding한 데이터
+            bidirectional=True if num_dirs > 1 else False
+        )
+
+        h_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers * num_dirs, B, d_h)
+
+        # hidden_states: 각 time step에 해당하는 hidden state들의 묶음.
+        # h_n: 모든 sequence를 거치고 나온 마지막 hidden state.
+        hidden_states, h_n = rnn(batch_emb.transpose(0, 1), h_0) # batch_first 가 False 이므로 transpose시켜줌
+
+        # d_h: hidden size, num_layers: layer 개수, num_dirs: 방향의 개수
+        print(hidden_states.shape)  # (L, B, d_h)
+        print(h_n.shape)  # (num_layers*num_dirs, B, d_h) = (1, B, d_h)
+        '''
+        torch.Size([20, 10, 512])
+        torch.Size([1, 10, 512])
+        '''
+        ```    
+        ![](./img/RNN6.jpg)     
+    - RNN 활용법
+        - 마지막 hidden state 만을 이용하여 text classification task 적용 가능
+            ```python
+            num_classes = 2
+            classification_layer = nn.Linear(hidden_size, num_classes)
+
+            # C: number of classes
+            output = classification_layer(h_n.squeeze(0))  # (1, B, d_h) => (B, C)
+            print(output.shape)
+            '''
+            torch.Size([10, 2])
+            '''
+            ```
+        - 각 time step에 대한 hidden state를 이용하여 token-level의 task 수행 가능(각 품사를 태깅하는 POS 태깅이나 named_entity_recognition(각 토큰이 어떤 의미를 가지는지를 분류)등에 사용 가능)
+            ```python
+            num_classes = 5
+            entity_layer = nn.Linear(hidden_size, num_classes)
+
+            # C: number of classes
+            output = entity_layer(hidden_states)  # (L, B, d_h) => (L, B, C)
+            print(output.shape)
+            '''
+            torch.Size([10, 20, 5])
+            '''
+            ```
+            (단, Language modeling(특정 토큰 뒤에 다음 토큰이 무엇이 올지를 순차적으로 예측하는 task)을 한다고 가정하면 위와 같이 토큰 레벨로 classification 해주면 안됨 -> 직접 for loop 를 호출해서 맨 처음 input의 결과를 다음 input으로 넣어주고 그것의 결과를 다시 input으로 넣어주는 반복작업이 필요)    
+            (예를 들면 I want to go home 에서 위의 예시에서는 그냥 I want to go home. 문장 전체를 넣어주면 전체 각 token에 대한 품사 결과가 나올 수 있지만, Language modeling은 I를 넣고 그것으로 인한 결과인 want를 모르면 다음 input을 넣을수가 없음.(Language modeling은 처음 단어를 넣으면 그에 맞는 다음 단어를 생성하고 또 그 다음 단어를 생성하는 것인데 I want to go home.을 바로 input에 넣는다는 것은 정답을 알고 있으면서 문제를 풀어달라고 하는 것.))
+    - PackedSequence 사용법
+        - 앞서 pad_id 0을 길이를 맞춰주기 위해 넣어주었는데 이 0은 아무런 의미가 없는 dummy 데이터임, 의미적으로 아무런 중요도 없고 굳이 계산을 하지 않아도 되는 부분 (메모리와 연산량 낭비) -> PackedSequence를 통해 해결 가능
+        - 기존 방식
+            ![](./img/packedsequence.gif) 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 
