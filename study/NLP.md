@@ -435,11 +435,105 @@
             (예를 들면 I want to go home 에서 위의 예시에서는 그냥 I want to go home. 문장 전체를 넣어주면 전체 각 token에 대한 품사 결과가 나올 수 있지만, Language modeling은 I를 넣고 그것으로 인한 결과인 want를 모르면 다음 input을 넣을수가 없음.(Language modeling은 처음 단어를 넣으면 그에 맞는 다음 단어를 생성하고 또 그 다음 단어를 생성하는 것인데 I want to go home.을 바로 input에 넣는다는 것은 정답을 알고 있으면서 문제를 풀어달라고 하는 것.))
     - PackedSequence 사용법
         - 앞서 pad_id 0을 길이를 맞춰주기 위해 넣어주었는데 이 0은 아무런 의미가 없는 dummy 데이터임, 의미적으로 아무런 중요도 없고 굳이 계산을 하지 않아도 되는 부분 (메모리와 연산량 낭비) -> PackedSequence를 통해 해결 가능
-        - 기존 방식
+        - 정렬을 하지않고 PackedSequence를 사용하는 경우
+            - T=2,3인 부분은 중간에 pad가 끼어 있어 어쩔수 없이 0을 넣어서 연산을 해주어야함(정렬을 하지 않으면 PackedSequence의 장점을 살리지 못할수도 있음)    
             ![](./img/packedsequence.gif) 
+        - 정렬 후에 PackedSequence 적용
+            - 배치내의 문장의 길이를 기준으로 정렬해주고 넣어주게 된다면 RNN에서 다음 타임 스텝으로 넘어갈때마다 배치사이즈를 조절하게 된다면 메모리와 연산량 낭비 문제를 최대한 해결가능(더 빠른 연산 가능)(정렬을 하게 된다면 pad를 넣은 부분을 하나도 사용하지 않게 됨)
+            - 연산량이 (5*6*1) = 30 에서 (5+4+3+3+2+1) = 18로 크게 줄어들게 됨    
+            ![](./img/packedsequence1.gif)
+        - PackedSequence의 마지막 hidden 부분은 아래와 같이 알아서 마지막 부분을 선택해서 출력하게됨
+            ![](./img/packedsequence2.jpg)
+        - 코드
+            ```python
+            from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+            # batch_lens는 배치내의 데이터 길이가 담긴 torch.LongTensor
+
+            sorted_lens, sorted_idx = batch_lens.sort(descending=True)
+
+            # torch의 tensor는 정렬하게 되면 value와 indices가 같이 나옴
+            # import torch
+
+            # a = torch.LongTensor([3,4,2,1])
+            # a.sort(descending=True)
+            ### torch.return_types.sort(values=tensor([4, 3, 2, 1]),indices=tensor([1, 0, 2, 3]))
+
+            sorted_batch = batch[sorted_idx]
+
+            print(sorted_batch)
+            print(sorted_lens)
+            '''
+            tensor([[85, 14, 80, 34, 99, 20, 31, 65, 53, 86,  3, 58, 30,  4, 11,  6, 50, 71,  74, 13],
+                    [58, 13, 40, 61, 88, 18, 92, 89,  8, 14, 61, 67, 49, 59, 45, 12, 47,  5,  0,  0],
+                    [87, 32, 79, 65,  2, 96, 43, 80, 85, 20, 41, 52, 95, 50, 35, 96, 24, 80,  0,  0],
+                    [22,  5, 21, 84, 39,  6,  9, 84, 36, 59, 32, 30, 69, 70, 82, 56,  1,  0,  0,  0],
+                    [70, 28, 30, 24, 76, 84, 92, 76, 77, 51,  7, 20, 82, 94, 57,  0,  0,  0,  0,  0],
+                    [19, 83, 88, 22, 57, 40, 75, 82,  4, 46,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                    [93, 77, 16, 67, 46, 74, 24, 70,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                    [94, 21, 79, 24,  3, 86,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                    [80, 80, 33, 63, 34, 63,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                    [62, 76, 79, 66, 32,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]])
+            tensor([20, 18, 18, 17, 15, 10,  8,  6,  6,  5])
+            '''
+            ```
+            ```python
+            # 정렬된 batch를 embedding후에 전체 문장별 길이데이터와 함께 pack_padded_sequence에 넣어주기 
+            sorted_batch_emb = embedding(sorted_batch)
+            packed_batch = pack_padded_sequence(sorted_batch_emb.transpose(0, 1), sorted_lens)
+
+            print(packed_batch)
+            print(packed_batch[0].shape)
+            '''
+            PackedSequence(data=tensor([[-0.9775, -0.0275,  0.2590,  ...,  0.5289,  0.5520, -0.0085],
+                    [ 0.9082, -1.4621, -0.7293,  ...,  0.9566,  1.0870,  1.0706],
+                    [ 0.3689,  0.2891,  1.2888,  ..., -1.0620,  0.1863,  1.2684],
+                    ...,
+                    [ 1.3904,  1.3372, -1.8687,  ..., -1.9423, -0.7393, -0.2358],
+                    [-0.5254,  1.5967,  1.3016,  ...,  1.1077, -0.9597,  1.4632],
+                    [ 0.8475,  0.3587, -0.9515,  ..., -0.3165, -0.6473, -0.4341]],
+                grad_fn=<PackPaddedSequenceBackward>), batch_sizes=tensor([10, 10, 10, 10, 10,  9,  7,  7,  6,  6,  5,  5,  5,  5,  5,  4,  4,  3,
+                    1,  1]), sorted_indices=None, unsorted_indices=None)
+            torch.Size([123, 256])
+            '''
+            ```
+            ```python
+            packed_outputs, h_n = rnn(packed_batch, h_0)
+
+            print(packed_outputs)
+            print(packed_outputs[0].shape)
+            print(h_n.shape)
+            '''
+            PackedSequence(data=tensor([[-0.1106, -0.1299,  0.5338,  ..., -0.5201, -0.7577,  0.5029],
+                    [-0.3075, -0.0623, -0.6321,  ..., -0.0955,  0.3264, -0.4315],
+                    [-0.3981,  0.0435,  0.1340,  ..., -0.1250,  0.1168,  0.3860],
+                    ...,
+                    [-0.1111,  0.5823, -0.4191,  ..., -0.0901, -0.1965, -0.6291],
+                    [-0.0949,  0.2718,  0.1046,  ..., -0.0153,  0.4186,  0.3825],
+                    [ 0.1410, -0.1145,  0.0253,  ..., -0.3859,  0.3022,  0.6851]],
+                grad_fn=<CatBackward>), batch_sizes=tensor([10, 10, 10, 10, 10,  9,  7,  7,  6,  6,  5,  5,  5,  5,  5,  4,  4,  3,
+                    1,  1]), sorted_indices=None, unsorted_indices=None)
+            torch.Size([123, 512])
+            torch.Size([1, 10, 512])
+            '''
+            ```
+            ```python
+            # packed_output은 PackedSequence 이므로 원래 output 형태와 다름 이를 다르 원래 형태로 바꿔주기 위해 pad_packed_sequence를 이용
+            outputs, outputs_lens = pad_packed_sequence(packed_outputs)
+
+            print(outputs.shape)  # (L, B, d_h)
+            print(outputs_lens)
+            '''
+            torch.Size([20, 10, 512])
+            tensor([20, 18, 18, 17, 15, 10,  8,  6,  6,  5])
+            '''
+            ```
+        - 코드부분을 그림을 통한 이해     
+            ![](./img/packedsequence3.jpg)
+            
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
-
+- https://simonjisu.github.io/nlp/2018/07/05/packedsequence.html
 ---
 
 ## #4
