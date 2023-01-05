@@ -563,9 +563,239 @@
     - 구조    
         ![](./img/GRU.jpg)
 
+- LSTM, GRU 코드 실습
+    - 데이터 전처리 (0 pad + 문장길이 정렬)
+        ```python
+        vocab_size = 100
+        pad_id = 0
 
+        data = [
+        [85,14,80,34,99,20,31,65,53,86,3,58,30,4,11,6,50,71,74,13],
+        [62,76,79,66,32],
+        [93,77,16,67,46,74,24,70],
+        [19,83,88,22,57,40,75,82,4,46],
+        [70,28,30,24,76,84,92,76,77,51,7,20,82,94,57],
+        [58,13,40,61,88,18,92,89,8,14,61,67,49,59,45,12,47,5],
+        [22,5,21,84,39,6,9,84,36,59,32,30,69,70,82,56,1],
+        [94,21,79,24,3,86],
+        [80,80,33,63,34,63],
+        [87,32,79,65,2,96,43,80,85,20,41,52,95,50,35,96,24,80]
+        ]
+        ```
+        ```python
+        max_len = len(max(data, key=len))
+        print(f"Maximum sequence length: {max_len}")
+
+        valid_lens = []
+        for i, seq in enumerate(tqdm(data)):
+            valid_lens.append(len(seq))
+            if len(seq) < max_len:
+                data[i] = seq + [pad_id] * (max_len - len(seq))
+        ```
+        ```python
+        # B: batch size, L: maximum sequence length
+        batch = torch.LongTensor(data)  # (B, L)
+        batch_lens = torch.LongTensor(valid_lens)  # (B)
+
+        batch_lens, sorted_idx = batch_lens.sort(descending=True)
+        batch = batch[sorted_idx]
+
+        print(batch)
+        print(batch_lens)
+        '''
+        tensor([[85, 14, 80, 34, 99, 20, 31, 65, 53, 86,  3, 58, 30,  4, 11,  6, 50, 71,  74, 13],
+                [58, 13, 40, 61, 88, 18, 92, 89,  8, 14, 61, 67, 49, 59, 45, 12, 47,  5,  0,  0],
+                [87, 32, 79, 65,  2, 96, 43, 80, 85, 20, 41, 52, 95, 50, 35, 96, 24, 80,  0,  0],
+                [22,  5, 21, 84, 39,  6,  9, 84, 36, 59, 32, 30, 69, 70, 82, 56,  1,  0,  0,  0],
+                [70, 28, 30, 24, 76, 84, 92, 76, 77, 51,  7, 20, 82, 94, 57,  0,  0,  0,  0,  0],
+                [19, 83, 88, 22, 57, 40, 75, 82,  4, 46,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [93, 77, 16, 67, 46, 74, 24, 70,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [94, 21, 79, 24,  3, 86,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [80, 80, 33, 63, 34, 63,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [62, 76, 79, 66, 32,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]])
+        tensor([20, 18, 18, 17, 15, 10,  8,  6,  6,  5])        
+        '''
+        ```
+    - LSTM 실습
+        ```python
+        embedding_size = 256
+        hidden_size = 512
+        num_layers = 1
+        num_dirs = 1
+
+        embedding = nn.Embedding(vocab_size, embedding_size)
+        lstm = nn.LSTM(
+            input_size=embedding_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bidirectional=True if num_dirs > 1 else False
+        )
+
+        h_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers * num_dirs, B, d_h)
+        c_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers * num_dirs, B, d_h)
+        ```
+        ```python
+        # d_w: word embedding size
+        batch_emb = embedding(batch)  # (B, L, d_w)
+
+        packed_batch = pack_padded_sequence(batch_emb.transpose(0, 1), batch_lens)
+
+        packed_outputs, (h_n, c_n) = lstm(packed_batch, (h_0, c_0))
+        print(packed_outputs)
+        print(packed_outputs[0].shape)
+        print(h_n.shape)
+        print(c_n.shape)
+        '''
+        PackedSequence(data=tensor([[ 0.0352,  0.0205,  0.0447,  ..., -0.2041,  0.0185,  0.1069],
+                [-0.1200,  0.0170, -0.0072,  ...,  0.0777,  0.1415,  0.1520],
+                [-0.0085,  0.0413, -0.0811,  ..., -0.0872, -0.0502, -0.0352],
+                ...,
+                [-0.0789,  0.0547, -0.0574,  ...,  0.1634, -0.0458,  0.2277],
+                [-0.0331, -0.0151, -0.0688,  ...,  0.1258, -0.0205,  0.1043],
+                [-0.1461, -0.0346, -0.0994,  ...,  0.0647, -0.0718,  0.0225]],
+            grad_fn=<CatBackward>), batch_sizes=tensor([10, 10, 10, 10, 10,  9,  7,  7,  6,  6,  5,  5,  5,  5,  5,  4,  4,  3,
+                1,  1]), sorted_indices=None, unsorted_indices=None)
+        torch.Size([123, 512])
+        torch.Size([1, 10, 512])
+        torch.Size([1, 10, 512])
+        '''
+        ```
+        ```python
+        outputs, output_lens = pad_packed_sequence(packed_outputs)
+        print(outputs.shape)
+        print(output_lens)
+        '''
+        torch.Size([20, 10, 512])
+        tensor([20, 18, 18, 17, 15, 10,  8,  6,  6,  5])
+        '''
+        ```
+    - GRU 실습
+        - cell state가 없어 RNN과 동일하게 사용 가능
+        - RNN 실습과 동일하므로 RNN에서는 하지 못했던 LM task 수행해보기(for loop 를 통해 하나의 입력을 계속 넣어주기)
+            ```python
+            gru = nn.GRU(
+                input_size=embedding_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                bidirectional=True if num_dirs > 1 else False
+            )
+            output_layer = nn.Linear(hidden_size, vocab_size)
+            ```
+            ```python
+            input_id = batch.transpose(0, 1)[0, :]  # (B) (전체 타임스텝중 제일 앞 타임스텝만 가져오기)
+            hidden = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (1, B, d_h)
+            ```
+            ```python
+            # teacher forcing 없이 이전에 얻은 output을 다음 input으로 이용하기
+            for t in range(max_len):
+                input_emb = embedding(input_id).unsqueeze(0)  # (1, B, d_w)
+                output, hidden = gru(input_emb, hidden)  # output: (1, B, d_h), hidden: (1, B, d_h)
+
+                # V: vocab size
+                output = output_layer(output)  # (1, B, V)
+                probs, top_id = torch.max(output, dim=-1)  # probs: (1, B), top_id: (1, B)
+                
+                # a = torch.LongTensor([[1,3,4],[5,1,0]])
+                # print(torch.max(a,dim=-1))
+                ## torch.return_types.max(values=tensor([4, 5]),indices=tensor([2, 0]))
+                
+                print("*" * 50)
+                print(f"Time step: {t}")
+                print(output.shape)
+                print(probs.shape)
+                print(top_id.shape)
+
+                input_id = top_id.squeeze(0)  # (B)
+            '''
+            **************************************************
+            Time step: 0
+            torch.Size([1, 10, 100])
+            torch.Size([1, 10])
+            torch.Size([1, 10])
+            **************************************************
+            Time step: 1
+            torch.Size([1, 10, 100])
+            torch.Size([1, 10])
+            torch.Size([1, 10])
+            .
+            .
+            .
+            **************************************************
+            Time step: 19
+            torch.Size([1, 10, 100])
+            torch.Size([1, 10])
+            torch.Size([1, 10])
+            '''
+            ```
+            - 참고 (teacher forcing)
+                - I want to go home 이러한 단어들을 순차적으로 생성하는 Language modeling을 할때 I를 넣어주면 want가 나오고 그 want를 다시 input에 넣어주고 이런식으로 진행을 함. 그런데 완전히 초기화 상태에서 학습을 시작하게 되면 I를 넣었을때 완전 이상한 값이 나올것이고 그 이상한 값을 다음 input으로 넣어 결국 계속 오류가 누적되게 됨(학습이 더디고 전체 결과가 안좋게 나옴)
+                - 따라서 처음에는 이전에 생성된 단어가 아니라 ground truth 단어들을 기존학습 방식인 output을 input에 넣어주는 연결부분을 끊고 그냥 입력으로 넣어주게 됨(처음 학습할때만 이런식으로 output을 input으로 넣지 않고 정답을 input으로 넣어주기(cheating))
+    - 양방향 및 여러 layer 사용 실습
+        ```python
+        num_layers = 2
+        num_dirs = 2
+        dropout=0.1
+
+        gru = nn.GRU(
+            input_size=embedding_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            bidirectional=True if num_dirs > 1 else False
+        )
+        ```
+        ```python
+        # d_w: word embedding size, num_layers: layer의 개수, num_dirs: 방향의 개수
+        batch_emb = embedding(batch)  # (B, L, d_w)
+        h_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers * num_dirs, B, d_h) = (4, B, d_h)
+
+        packed_batch = pack_padded_sequence(batch_emb.transpose(0, 1), batch_lens)
+
+        packed_outputs, h_n = gru(packed_batch, h_0)
+        print(packed_outputs)
+        print(packed_outputs[0].shape)
+        print(h_n.shape)
+        '''
+        PackedSequence(data=tensor([[-0.0102, -0.1831, -0.0607,  ...,  0.2596, -0.1109,  0.0306],
+                [ 0.0233, -0.0525,  0.0753,  ..., -0.0415, -0.1773,  0.1906],
+                [-0.0531,  0.0034, -0.0487,  ...,  0.0955,  0.0615,  0.2063],
+                ...,
+                [ 0.0157, -0.0067,  0.0083,  ...,  0.1532, -0.1595, -0.0090],
+                [-0.0587, -0.0798, -0.0590,  ..., -0.0762,  0.0124, -0.1363],
+                [-0.0633, -0.2451,  0.0214,  ...,  0.1049, -0.0192, -0.0980]],
+            grad_fn=<CatBackward>), batch_sizes=tensor([10, 10, 10, 10, 10,  9,  7,  7,  6,  6,  5,  5,  5,  5,  5,  4,  4,  3,
+                1,  1]), sorted_indices=None, unsorted_indices=None)
+        torch.Size([123, 1024])
+        torch.Size([4, 10, 512])
+        '''
+        ```
+        ```python
+        outputs, output_lens = pad_packed_sequence(packed_outputs)
+
+        print(outputs.shape)  # (L, B, num_dirs*d_h)
+        print(output_lens)
+        '''
+        torch.Size([20, 10, 1024])
+        tensor([20, 18, 18, 17, 15, 10,  8,  6,  6,  5])
+        '''
+        ```
+        ```python
+        # h_n을 순방향 역방향 ,layer 별로 분리해주고 싶을 경우
+        batch_size = h_n.shape[1]
+        print(h_n.view(num_layers, num_dirs, batch_size, hidden_size))
+        print(h_n.view(num_layers, num_dirs, batch_size, hidden_size).shape)
+        '''
+        torch.Size([2, 2, 10, 512])
+        '''
+        ```
+        - output shape을 이해하기 위한 그림
+            - bidirectional = True : 양방향을 concat 하기때문에 output의 shape이 2배가 됨    
+                ![](./img/bidirectional.jpg)
+            - multilayer : layer가 쌓이지만 output의 shape은 그대로 나오기 때문에 변함없고 마지막 단에 나오는 h_n 만 쌓인 layer만큼 증가하여 나오게 됨    
+                ![](./img/multilayer.jpg)
 - Backpropagation in LSTM/GRU
     - 전 타임스텝의 cell state vector에 현재 입력값에 따른 매번 다르게 나오는 forget gate 결과값을 곱해주게 되면 반복적인 연산이 아니게 되고, 현재 타임 스텝에서 필요로 하는 정보를 곱셈이 아닌 덧셈을 통해서 만들어주기 때문에 gradient vanishing/explosion 문제가 사라지게 됨 (original RNN 처럼 단순히 똑같은 행렬을 계속해서 곱해주는 연산이 아님)
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
+- https://towardsdatascience.com/pytorch-basics-how-to-train-your-neural-net-intro-to-rnn-cb6ebc594677
