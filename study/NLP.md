@@ -815,7 +815,12 @@
     - 인코더의 마지막 hidden state vector에 앞서 나온 모든 많은 정보들을 우겨넣게 되면 아무리 LSTM 등으로 의존도를 해결했다고 하더라도 마지막 타임스텝으로 갈수록 앞쪽 정보는 변질되거나 소실될 수 있음 -> 따라서 Attention 모듈을 추가로 사용하여 디코더에서 인코더의 마지막 타임스텝에서 나온 hidden state vector에만 의존하는것이 아니라 입력문장에서 주어졌던 각각의 단어들을 인코딩한 각각의 encoding hidden state vector를 선별적으로 가져가서 사용할수 있도록 만듦
         ![](./img/seq2seq2.gif)
         ![](./img/seq2seq3.gif)
-
-
+    - 디코더에서 생성된 hidden state vector와 인코더 단의 각 워드별로의 hidden state vector 둘간의 score를 구할때는 여러가지 방법이 존재함
+        - 일반적인 내적(dot), 좀더 확장된 generalized dot product, concat을 통한 연산 ( $h_t$ 는 디코더에서 주어지는 hidden state vector , $h_s$ 는 인코더 단에서 각 워드별로의 hidden state vector )
+        - 일반적인 내적은 같은 차원에 있는 값들끼리만 곱해짐. -> 가운데에 행렬을 추가하여 같은 차원이 아니더라도 값에 가중치를 부여할수 있도록 해줌    
+            ((1,3)과 (2,-5)롤 단순 내적하면 1과 2 끼리 연산, 3과 -5 끼리 연산, 즉 같은 차원끼리만 연산이 됨. 하지만 그 사이에 (1,3) ((a,b),(c,d)) (2,-5) 를 추가해주게 된다면 (1a+3c,1b+3d) (2,-5) -> (2(1a+3c),-5(1b+3d)) 로 다른 차원끼리도 가중치를 부여해줄수 있음
+        - concat 방식은 두개의 hidden state vector를 concat하고 새로운 neural net을 만드는 방식임. $W_1$ 는 concat된 벡터를 특정 차원으로 만들어주고 $W_2$ 는 그 특정 차원을 하나의 score 값, 즉 scalar 값으로 만들어줌(그러므로 $W_1$ 은 행렬이지만 , $W_2$ 는 벡터가 됨)    
+            ![](./img/seq2seq4.jpg)
+            
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
