@@ -795,12 +795,30 @@
                 ![](./img/bidirectional.jpg)
             - multilayer : layer가 쌓이지만 output의 shape은 그대로 나오기 때문에 변함없고 마지막 단에 나오는 h_n 만 쌓인 layer만큼 증가하여 나오게 됨    
                 ![](./img/multilayer.jpg)
+
+        - outputs[-1]과 h_n은 전혀 다르다는 것을 명심해야함
+            - outputs는 차원이 1024로 multilayer의 마지막 layer에서의 순방향과 역방향의 값이 concat되는것을 알수 있음.
+            - 여기서 주의할점이 h_n[-1]이 multilayer마지막 단의 역방향, h_n[-2]가 순방향인데 이 둘이 concat되어서 outputs를 만들어진게 아닌가 하는 생각이 들수 있음. -> 하지만 여기서 h_n[-1]은 역방향이므로 outputs[0]에서 [512:] 값이랑 동일함. (역방향은 순방향 뒷부분에 concat 됨. 즉 [:512] 는 순방향 , [512:]는 역방향을 의미)
+            ![](./img/bidirectiona2.jpg)
+            - 코드
+                ```python
+                # 1배치내의 첫번째 문장으로 테스트
+
+                print(outputs[-1][0][:512][:5]) # 마지막 타임스텝
+                print(h_n[-2][0][:512][:5]) # 순방향
+
+                print(outputs[0][0][512:][:5]) # 첫번째 타임스텝
+                print(h_n[-1][0][:512][:5]) # 역방향
+                ```
+            
+
 - Backpropagation in LSTM/GRU
     - 전 타임스텝의 cell state vector에 현재 입력값에 따른 매번 다르게 나오는 forget gate 결과값을 곱해주게 되면 반복적인 연산이 아니게 되고, 현재 타임 스텝에서 필요로 하는 정보를 곱셈이 아닌 덧셈을 통해서 만들어주기 때문에 gradient vanishing/explosion 문제가 사라지게 됨 (original RNN 처럼 단순히 똑같은 행렬을 계속해서 곱해주는 연산이 아님)
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 - https://towardsdatascience.com/pytorch-basics-how-to-train-your-neural-net-intro-to-rnn-cb6ebc594677
+- https://github.com/pytorch/pytorch/issues/4930
 
 ---
 
@@ -823,6 +841,280 @@
             ((1,3)과 (2,-5)롤 단순 내적하면 1과 2 끼리 연산, 3과 -5 끼리 연산, 즉 같은 차원끼리만 연산이 됨. 하지만 그 사이에 (1,3) ((a,b),(c,d)) (2,-5) 를 추가해주게 된다면 (1a+3c,1b+3d) (2,-5) -> (2(1a+3c),-5(1b+3d)) 로 다른 차원끼리도 가중치를 부여해줄수 있음
         - concat 방식은 두개의 hidden state vector를 concat하고 새로운 neural net을 만드는 방식임. $W_1$ 는 concat된 벡터를 특정 차원으로 만들어주고 $W_2$ 는 그 특정 차원을 하나의 score 값, 즉 scalar 값으로 만들어줌(그러므로 $W_1$ 은 행렬이지만 , $W_2$ 는 벡터가 됨)    
             ![](./img/seq2seq4.jpg)
+
+- Seq2Seq 실습
+    - src_data를 trg_data로 바꾸는 task
+    - import & data
+        ```python
+        from tqdm import tqdm
+        from torch import nn
+        from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+        import torch
+        import random
+        ```
+        ```python
+        vocab_size = 100
+        pad_id = 0 
+        sos_id = 1 # start token
+        eos_id = 2 # end token
+
+        src_data = [
+        [3, 77, 56, 26, 3, 55, 12, 36, 31],
+        [58, 20, 65, 46, 26, 10, 76, 44],
+        [58, 17, 8],
+        [59],
+        [29, 3, 52, 74, 73, 51, 39, 75, 19],
+        [41, 55, 77, 21, 52, 92, 97, 69, 54, 14, 93],
+        [39, 47, 96, 68, 55, 16, 90, 45, 89, 84, 19, 22, 32, 99, 5],
+        [75, 34, 17, 3, 86, 88],
+        [63, 39, 5, 35, 67, 56, 68, 89, 55, 66],
+        [12, 40, 69, 39, 49]
+        ]
+
+        trg_data = [
+        [75, 13, 22, 77, 89, 21, 13, 86, 95],
+        [79, 14, 91, 41, 32, 79, 88, 34, 8, 68, 32, 77, 58, 7, 9, 87],
+        [85, 8, 50, 30],
+        [47, 30],
+        [8, 85, 87, 77, 47, 21, 23, 98, 83, 4, 47, 97, 40, 43, 70, 8, 65, 71, 69, 88],
+        [32, 37, 31, 77, 38, 93, 45, 74, 47, 54, 31, 18],
+        [37, 14, 49, 24, 93, 37, 54, 51, 39, 84],
+        [16, 98, 68, 57, 55, 46, 66, 85, 18],
+        [20, 70, 14, 6, 58, 90, 30, 17, 91, 18, 90],
+        [37, 93, 98, 13, 45, 28, 89, 72, 70]
+        ]
+        ```
+    - 데이터 전처리
+        ```python
+        trg_data = [[sos_id]+seq+[eos_id] for seq in tqdm(trg_data)]
+
+        def padding(data, is_src=True):
+            max_len = len(max(data, key=len))
+            print(f"Maximum sequence length: {max_len}")
+
+            valid_lens = []
+            for i, seq in enumerate(tqdm(data)):
+                valid_lens.append(len(seq))
+                if len(seq) < max_len:
+                    data[i] = seq + [pad_id] * (max_len - len(seq))
+
+            return data, valid_lens, max_len
+
+        src_data, src_lens, src_max_len = padding(src_data)
+        trg_data, trg_lens, trg_max_len = padding(trg_data)
+        '''
+        Maximum sequence length: 15
+        Maximum sequence length: 22
+        '''
+        ```
+        ```python
+        # B: batch size, S_L: source maximum sequence length, T_L: target maximum sequence length
+        src_batch = torch.LongTensor(src_data)  # (B, S_L)
+        src_batch_lens = torch.LongTensor(src_lens)  # (B)
+        trg_batch = torch.LongTensor(trg_data)  # (B, T_L)
+        trg_batch_lens = torch.LongTensor(trg_lens)  # (B)
+
+        print(src_batch.shape)
+        print(src_batch_lens.shape)
+        print(trg_batch.shape)
+        print(trg_batch_lens.shape)
+        '''
+        torch.Size([10, 15])
+        torch.Size([10])
+        torch.Size([10, 22])
+        torch.Size([10])
+        '''
+        ```
+        ```python
+        # PackedSquence를 사용을 위해 source data를 기준으로 정렬.
+
+        src_batch_lens, sorted_idx = src_batch_lens.sort(descending=True)
+        src_batch = src_batch[sorted_idx]
+        trg_batch = trg_batch[sorted_idx]
+        trg_batch_lens = trg_batch_lens[sorted_idx]
+
+        print(src_batch)
+        print(src_batch_lens)
+        print(trg_batch)
+        print(trg_batch_lens)
+        '''
+        tensor([[39, 47, 96, 68, 55, 16, 90, 45, 89, 84, 19, 22, 32, 99,  5],
+                [41, 55, 77, 21, 52, 92, 97, 69, 54, 14, 93,  0,  0,  0,  0],
+                [63, 39,  5, 35, 67, 56, 68, 89, 55, 66,  0,  0,  0,  0,  0],
+                [ 3, 77, 56, 26,  3, 55, 12, 36, 31,  0,  0,  0,  0,  0,  0],
+                [29,  3, 52, 74, 73, 51, 39, 75, 19,  0,  0,  0,  0,  0,  0],
+                [58, 20, 65, 46, 26, 10, 76, 44,  0,  0,  0,  0,  0,  0,  0],
+                [75, 34, 17,  3, 86, 88,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [12, 40, 69, 39, 49,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [58, 17,  8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [59,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]])
+        tensor([15, 11, 10,  9,  9,  8,  6,  5,  3,  1])
+        tensor([[ 1, 37, 14, 49, 24, 93, 37, 54, 51, 39, 84,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 32, 37, 31, 77, 38, 93, 45, 74, 47, 54, 31, 18,  2,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 20, 70, 14,  6, 58, 90, 30, 17, 91, 18, 90,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 75, 13, 22, 77, 89, 21, 13, 86, 95,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1,  8, 85, 87, 77, 47, 21, 23, 98, 83,  4, 47, 97, 40, 43, 70,  8, 65,  71, 69, 88,  2],
+                [ 1, 79, 14, 91, 41, 32, 79, 88, 34,  8, 68, 32, 77, 58,  7,  9, 87,  2,  0,  0,  0,  0],
+                [ 1, 16, 98, 68, 57, 55, 46, 66, 85, 18,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 37, 93, 98, 13, 45, 28, 89, 72, 70,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 85,  8, 50, 30,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                [ 1, 47, 30,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]])
+        tensor([12, 14, 13, 11, 22, 18, 11, 11,  6,  4])
+        '''
+        ```
+    - Encoder 구현
+        ```python
+        embedding_size = 256
+        hidden_size = 512
+        num_layers = 2
+        num_dirs = 2
+        dropout = 0.1
+
+        class Encoder(nn.Module):
+            def __init__(self):
+                super(Encoder, self).__init__()
+
+                self.embedding = nn.Embedding(vocab_size, embedding_size)
+                self.gru = nn.GRU(
+                    input_size=embedding_size, 
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    bidirectional=True if num_dirs > 1 else False,
+                    dropout=dropout
+                )
+                self.linear = nn.Linear(num_dirs * hidden_size, hidden_size)
+
+            def forward(self, batch, batch_lens):  # batch: (B, S_L), batch_lens: (B)
+                # d_w: word embedding size
+                batch_emb = self.embedding(batch)  # (B, S_L, d_w)
+                batch_emb = batch_emb.transpose(0, 1)  # (S_L, B, d_w)
+
+                packed_input = pack_padded_sequence(batch_emb, batch_lens)
+
+                h_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers*num_dirs, B, d_h) = (4, B, d_h)
+                packed_outputs, h_n = self.gru(packed_input, h_0)  # h_n: (4, B, d_h)
+                outputs = pad_packed_sequence(packed_outputs)[0]  # outputs: (S_L, B, 2d_h)
+
+                forward_hidden = h_n[-2, :, :]
+                backward_hidden = h_n[-1, :, :]
+                hidden = self.linear(torch.cat((forward_hidden, backward_hidden), dim=-1)).unsqueeze(0)  # (1, B, d_h)
+
+                return outputs, hidden
+
+        encoder = Encoder()
+        ```
+    - Decoder 구현
+        ```python
+        class Decoder(nn.Module):
+            def __init__(self):
+                super(Decoder, self).__init__()
+
+                self.embedding = nn.Embedding(vocab_size, embedding_size)
+                self.gru = nn.GRU(
+                    input_size=embedding_size, 
+                    hidden_size=hidden_size,
+                )
+                self.output_layer = nn.Linear(hidden_size, vocab_size)
+
+            def forward(self, batch, hidden):  # batch: (B), hidden: (1, B, d_h)
+                batch_emb = self.embedding(batch)  # (B, d_w)
+                batch_emb = batch_emb.unsqueeze(0)  # (1, B, d_w)
+
+                outputs, hidden = self.gru(batch_emb, hidden)  # outputs: (1, B, d_h), hidden: (1, B, d_h)
+
+                # V: vocab size
+                outputs = self.output_layer(outputs)  # (1, B, V)
+
+                return outputs.squeeze(0), hidden
+        
+        decoder = Decoder()
+        ```
+
+    - Seq2Seq 모델 구축
+        ```python
+        class Seq2seq(nn.Module):
+            def __init__(self, encoder, decoder):
+                super(Seq2seq, self).__init__()
+
+                self.encoder = encoder
+                self.decoder = decoder
+
+            def forward(self, src_batch, src_batch_lens, trg_batch, teacher_forcing_prob=0.5):
+                # src_batch: (B, S_L), src_batch_lens: (B), trg_batch: (B, T_L)
+
+                _, hidden = self.encoder(src_batch, src_batch_lens)  # hidden: (1, B, d_h)
+
+                input_ids = trg_batch[:, 0]  # (B)
+                batch_size = src_batch.shape[0]
+                outputs = torch.zeros(trg_max_len, batch_size, vocab_size)  # (T_L, B, V)
+
+                for t in range(1, trg_max_len):
+                    decoder_outputs, hidden = self.decoder(input_ids, hidden)  # decoder_outputs: (B, V), hidden: (1, B, d_h)
+
+                    outputs[t] = decoder_outputs
+                    _, top_ids = torch.max(decoder_outputs, dim=-1)  # top_ids: (B)
+
+                    input_ids = trg_batch[:, t] if random.random() > teacher_forcing_prob else top_ids
+
+                return outputs
+        
+        seq2seq = Seq2seq(encoder, decoder)
+        ```
+
+    - 모델 학습과정 살펴보기
+        ```python
+        # 학습 과정이라고 생각하고 모델에 input 넣기
+        outputs = seq2seq(src_batch, src_batch_lens, trg_batch)
+
+        print(outputs.shape)
+        '''
+        torch.Size([22, 10, 100])
+        '''
+        ```
+        ![](./img/seq2seq5.jpg)
+        ```python
+        loss_function = nn.CrossEntropyLoss()
+
+        preds = outputs[1:, :, :].transpose(0, 1)  # (B, T_L-1, V)
+        loss = loss_function(preds.contiguous().view(-1, vocab_size), trg_batch[:,1:].contiguous().view(-1, 1).squeeze(1))
+
+        print(loss)
+        '''
+        tensor(4.5950, grad_fn=<NllLossBackward>)
+        '''
+        ```
+    - 모델 추론과정 살펴보기
+        - 실제 inference 에선 teacher forcing 없이 이전 결과만을 가지고 생성함
+        ```python
+        src_sent = [4, 10, 88, 46, 72, 34, 14, 51]
+        src_len = len(src_sent)
+
+        src_batch = torch.LongTensor(src_sent).unsqueeze(0)  # (1, L)
+        src_batch_lens = torch.LongTensor([src_len])  # (1)
+
+        _, hidden = seq2seq.encoder(src_batch, src_batch_lens)  # hidden: (1, 1, d_h)
+
+        input_id = torch.LongTensor([sos_id]) # (1)
+        output = []
+
+        for t in range(1, trg_max_len):
+            decoder_output, hidden = seq2seq.decoder(input_id, hidden)  # decoder_output: (1, V), hidden: (1, 1, d_h)
+
+            _, top_id = torch.max(decoder_output, dim=-1)  # top_ids: (1)
+
+            if top_id == eos_id:
+                break
+            else:
+                output += top_id.tolist()
+                input_id = top_id
+        
+        print(output)
+        '''
+        [21, 77, 84, 89, 1, 21, 77, 84, 89, 1, 21, 77, 84, 89, 1, 21, 77, 84, 89, 1, 21]
+        '''
+        ```
+- Seq2Seq with Attention 실습
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
