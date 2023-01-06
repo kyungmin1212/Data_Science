@@ -799,7 +799,7 @@
         - outputs[-1]과 h_n은 전혀 다르다는 것을 명심해야함
             - outputs는 차원이 1024로 multilayer의 마지막 layer에서의 순방향과 역방향의 값이 concat되는것을 알수 있음.
             - 여기서 주의할점이 h_n[-1]이 multilayer마지막 단의 역방향, h_n[-2]가 순방향인데 이 둘이 concat되어서 outputs를 만들어진게 아닌가 하는 생각이 들수 있음. -> 하지만 여기서 h_n[-1]은 역방향이므로 outputs[0]에서 [512:] 값이랑 동일함. (역방향은 순방향 뒷부분에 concat 됨. 즉 [:512] 는 순방향 , [512:]는 역방향을 의미)
-            ![](./img/bidirectiona2.jpg)
+            ![](./img/bidirectional_multilayer2.jpg)
             - 코드
                 ```python
                 # 1배치내의 첫번째 문장으로 테스트
