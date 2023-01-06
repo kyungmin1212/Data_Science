@@ -4,6 +4,8 @@
 - [Word Embedding(Word2Vec, Glove)(cf. CBOW, Skip-gram)](#2)
 - [RNN(Recurrent Neural Network)](#3)
 - [LSTM(Long Short-Term Memory), GRU(Gated Recurrent Unit)](#4)
+- [Sequence to Sequence with Attention](#5)
+- [Beam Search](#6)
 ---
 
 ## #1
@@ -821,6 +823,20 @@
             ((1,3)과 (2,-5)롤 단순 내적하면 1과 2 끼리 연산, 3과 -5 끼리 연산, 즉 같은 차원끼리만 연산이 됨. 하지만 그 사이에 (1,3) ((a,b),(c,d)) (2,-5) 를 추가해주게 된다면 (1a+3c,1b+3d) (2,-5) -> (2(1a+3c),-5(1b+3d)) 로 다른 차원끼리도 가중치를 부여해줄수 있음
         - concat 방식은 두개의 hidden state vector를 concat하고 새로운 neural net을 만드는 방식임. $W_1$ 는 concat된 벡터를 특정 차원으로 만들어주고 $W_2$ 는 그 특정 차원을 하나의 score 값, 즉 scalar 값으로 만들어줌(그러므로 $W_1$ 은 행렬이지만 , $W_2$ 는 벡터가 됨)    
             ![](./img/seq2seq4.jpg)
-            
+
+#### References
+- [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
+
+---
+
+## #6
+
+### Beam Search
+- 문장을 decoding 하는데에 사용하는 대표적인 알고리즘
+- k라는 beam size를 가지고 타임스텝마다 스코어가 가장 높은 k개의 candidate를 우리가 고려하고 추적하는 것이 beam search의 핵심 아이디어    
+( $k^T$ 가 아니라 매 타임스텝마다 그중에서 가장 높은 k개의 candidate만 뽑아가는것(= 계속 k개의 후보만 존재))
+- Beam size가 2일 경우 예시    
+    ![](./img/beamsearch.gif)
+
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
