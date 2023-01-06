@@ -799,3 +799,23 @@
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 - https://towardsdatascience.com/pytorch-basics-how-to-train-your-neural-net-intro-to-rnn-cb6ebc594677
+
+---
+
+## #5
+
+### Sequence to Sequence with Attention
+- Seq2Seq Model은 RNN 구조 중 many to many 형태에 해당함 (many to many 중에서도 입력 Sequence를 모두 다 읽은 후(Encoder) 그 다음에 출력 Sequence를 생성(Decoder하는 모델)    
+    ![](./img/seq2seq.jpg)
+- Are you free tomorrow? 라고 질문했을때 그에 대응하는 문장으로써 Yes, what`s up? 이라는 문장을 예측하여 생성하는 예시    
+    ![](./img/seq2seq1.jpg)
+    - start 토큰를 vocabulary 상에 정의해두고 디코더 타임스텝의 제일 처음에 넣어줌으로써 실직적인 단어 예측이 수행됨. 
+    - end 토큰이 나올때까지 디코더 RNN을 구동하고 이 토큰이 실제로 생성되면 여기까지 최종적인 출력을 해서 더 이상 단어를 생성하지 않고 종료하도록 함.
+- Attention
+    - 인코더의 마지막 hidden state vector에 앞서 나온 모든 많은 정보들을 우겨넣게 되면 아무리 LSTM 등으로 의존도를 해결했다고 하더라도 마지막 타임스텝으로 갈수록 앞쪽 정보는 변질되거나 소실될 수 있음 -> 따라서 Attention 모듈을 추가로 사용하여 디코더에서 인코더의 마지막 타임스텝에서 나온 hidden state vector에만 의존하는것이 아니라 입력문장에서 주어졌던 각각의 단어들을 인코딩한 각각의 encoding hidden state vector를 선별적으로 가져가서 사용할수 있도록 만듦
+        ![](./img/seq2seq2.gif)
+        ![](./img/seq2seq3.gif)
+
+
+#### References
+- [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
