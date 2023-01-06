@@ -809,6 +809,12 @@
 
                 print(outputs[0][0][512:][:5]) # 첫번째 타임스텝
                 print(h_n[-1][0][:512][:5]) # 역방향
+                '''
+                tensor([ 0.3047, -0.2413,  0.3590, -0.2214,  0.0414], grad_fn=<SliceBackward>)
+                tensor([ 0.3047, -0.2413,  0.3590, -0.2214,  0.0414], grad_fn=<SliceBackward>)
+                tensor([-0.2429, -0.2235, -0.0296, -0.1823, -0.0725], grad_fn=<SliceBackward>)
+                tensor([-0.2429, -0.2235, -0.0296, -0.1823, -0.0725], grad_fn=<SliceBackward>)
+                '''
                 ```
             
 
