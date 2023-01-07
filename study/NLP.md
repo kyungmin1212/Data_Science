@@ -1004,7 +1004,7 @@
 
                 forward_hidden = h_n[-2, :, :]
                 backward_hidden = h_n[-1, :, :]
-                hidden = self.linear(torch.cat((forward_hidden, backward_hidden), dim=-1)).unsqueeze(0)  # (1, B, d_h)
+                hidden = self.linear(torch.cat((forward_hidden, backward_hidden), dim=-1)).unsqueeze(0)  # (1, B, d_h) # sequence,batch,feature 순이기 때문에 unsqueeze 필요
 
                 return outputs, hidden
 
@@ -1025,7 +1025,7 @@
 
             def forward(self, batch, hidden):  # batch: (B), hidden: (1, B, d_h)
                 batch_emb = self.embedding(batch)  # (B, d_w)
-                batch_emb = batch_emb.unsqueeze(0)  # (1, B, d_w)
+                batch_emb = batch_emb.unsqueeze(0)  # (1, B, d_w) # sequence,batch,feature 순이기 때문에 unsqueeze 필요
 
                 outputs, hidden = self.gru(batch_emb, hidden)  # outputs: (1, B, d_h), hidden: (1, B, d_h)
 
@@ -1051,16 +1051,17 @@
 
                 _, hidden = self.encoder(src_batch, src_batch_lens)  # hidden: (1, B, d_h)
 
-                input_ids = trg_batch[:, 0]  # (B)
+                input_ids = trg_batch[:, 0]  # (B) # 첫번째 타임스텝 (원래는 start token 이지만 여기서는 매번 다른값이 들어감)
                 batch_size = src_batch.shape[0]
                 outputs = torch.zeros(trg_max_len, batch_size, vocab_size)  # (T_L, B, V)
 
-                for t in range(1, trg_max_len):
+                for t in range(1, trg_max_len): # 결과는 trg_max_len - 1 짜리 길이로 나오게됨(첫번째는 입력으로만들어가기 때문), 여기서는 outputs[1:] 가 진짜 결과임
                     decoder_outputs, hidden = self.decoder(input_ids, hidden)  # decoder_outputs: (B, V), hidden: (1, B, d_h)
 
                     outputs[t] = decoder_outputs
                     _, top_ids = torch.max(decoder_outputs, dim=-1)  # top_ids: (B)
-
+                    # index값이 즉 id값임 , decoder 의 output의 dimension이 vocab size로 되어있기때문 
+                    
                     input_ids = trg_batch[:, t] if random.random() > teacher_forcing_prob else top_ids
 
                 return outputs
