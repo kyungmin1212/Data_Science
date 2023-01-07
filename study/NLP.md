@@ -849,7 +849,7 @@
             ![](./img/seq2seq4.jpg)
 
 - Seq2Seq 실습
-    - src_data를 trg_data로 바꾸는 task
+    - src_data를 trg_data로 변환 train 후 src_sent 에 대해 test 결과 생성
     - import & data
         ```python
         from tqdm import tqdm
@@ -1084,8 +1084,11 @@
         loss_function = nn.CrossEntropyLoss()
 
         preds = outputs[1:, :, :].transpose(0, 1)  # (B, T_L-1, V)
-        loss = loss_function(preds.contiguous().view(-1, vocab_size), trg_batch[:,1:].contiguous().view(-1, 1).squeeze(1))
-
+        loss = loss_function(preds.reshape(-1, vocab_size), trg_batch[:,1:].reshape(-1,1).squeeze(1)) # trg_batch -> (10,20)
+        # cross entropy 는 target이 one-hot vector로 표현되어져 있지 않더라도 알아서 one-hot vector로 변경시켜서 pred과 비교해줌
+        # cross entropy 는 분류 문제에서 사용. 숫자간의 연관성이 없음 (class 10과 class 40은 숫자가 크다고 더 좋고 그런것이 없음)
+        # 회귀문제(회귀문제는 숫자가 의미가 있을경우 사용함. 숫자 10보다 40이 큰것이 더 좋을경우 회귀로 생각)와 달리 one-hot encoding이나 embedding 된 경우가 많음
+        # trg_batch[:,1:].reshape(-1,1).squeeze(1) 를 trg_batch[:,1:].reshape(-1)로 작성해도 됨(단지 preds.reshape(-1,vocab_size) 와 통일시켜주기 위함)
         print(loss)
         '''
         tensor(4.5950, grad_fn=<NllLossBackward>)
@@ -1122,6 +1125,350 @@
         '''
         ```
 - Seq2Seq with Attention 실습
+    - import & data
+        ```python
+        from tqdm import tqdm
+        from torch import nn
+        from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+        from torch.nn import functional as F
+
+        import torch
+        import random
+        ```
+        ```python
+        vocab_size = 100
+        pad_id = 0
+        sos_id = 1
+        eos_id = 2
+
+        src_data = [
+        [3, 77, 56, 26, 3, 55, 12, 36, 31],
+        [58, 20, 65, 46, 26, 10, 76, 44],
+        [58, 17, 8],
+        [59],
+        [29, 3, 52, 74, 73, 51, 39, 75, 19],
+        [41, 55, 77, 21, 52, 92, 97, 69, 54, 14, 93],
+        [39, 47, 96, 68, 55, 16, 90, 45, 89, 84, 19, 22, 32, 99, 5],
+        [75, 34, 17, 3, 86, 88],
+        [63, 39, 5, 35, 67, 56, 68, 89, 55, 66],
+        [12, 40, 69, 39, 49]
+        ]
+
+        trg_data = [
+        [75, 13, 22, 77, 89, 21, 13, 86, 95],
+        [79, 14, 91, 41, 32, 79, 88, 34, 8, 68, 32, 77, 58, 7, 9, 87],
+        [85, 8, 50, 30],
+        [47, 30],
+        [8, 85, 87, 77, 47, 21, 23, 98, 83, 4, 47, 97, 40, 43, 70, 8, 65, 71, 69, 88],
+        [32, 37, 31, 77, 38, 93, 45, 74, 47, 54, 31, 18],
+        [37, 14, 49, 24, 93, 37, 54, 51, 39, 84],
+        [16, 98, 68, 57, 55, 46, 66, 85, 18],
+        [20, 70, 14, 6, 58, 90, 30, 17, 91, 18, 90],
+        [37, 93, 98, 13, 45, 28, 89, 72, 70]
+        ]
+        ```
+    - 데이터 전처리
+        - seq2seq 실습과 동일
+        ```python
+        trg_data = [[sos_id]+seq+[eos_id] for seq in tqdm(trg_data)]
+
+        def padding(data, is_src=True):
+            max_len = len(max(data, key=len))
+            print(f"Maximum sequence length: {max_len}")
+
+            valid_lens = []
+            for i, seq in enumerate(tqdm(data)):
+                valid_lens.append(len(seq))
+                if len(seq) < max_len:
+                    data[i] = seq + [pad_id] * (max_len - len(seq))
+
+            return data, valid_lens, max_len
+
+        src_data, src_lens, src_max_len = padding(src_data)
+        trg_data, trg_lens, trg_max_len = padding(trg_data)
+        '''
+        Maximum sequence length: 15
+        Maximum sequence length: 22
+        '''
+        ```
+        ```python
+        # B: batch size, S_L: source maximum sequence length, T_L: target maximum sequence length
+        src_batch = torch.LongTensor(src_data)  # (B, S_L)
+        src_batch_lens = torch.LongTensor(src_lens)  # (B)
+        trg_batch = torch.LongTensor(trg_data)  # (B, T_L)
+        trg_batch_lens = torch.LongTensor(trg_lens)  # (B)
+
+        print(src_batch.shape)
+        print(src_batch_lens.shape)
+        print(trg_batch.shape)
+        print(trg_batch_lens.shape)
+        '''
+        torch.Size([10, 15])
+        torch.Size([10])
+        torch.Size([10, 22])
+        torch.Size([10])
+        '''
+        ```
+        ```python
+        src_batch_lens, sorted_idx = src_batch_lens.sort(descending=True)
+        src_batch = src_batch[sorted_idx]
+        trg_batch = trg_batch[sorted_idx]
+        trg_batch_lens = trg_batch_lens[sorted_idx]
+
+        print(src_batch)
+        print(src_batch_lens)
+        print(trg_batch)
+        print(trg_batch_lens)
+        ```
+    - Encoder
+        - Encoder 역시 기존 Seq2Seq 모델과 동일
+        ```python
+        embedding_size = 256
+        hidden_size = 512
+        num_layers = 2
+        num_dirs = 2
+        dropout = 0.1
+
+        class Encoder(nn.Module):
+            def __init__(self):
+                super(Encoder, self).__init__()
+
+                self.embedding = nn.Embedding(vocab_size, embedding_size)
+                self.gru = nn.GRU(
+                    input_size=embedding_size, 
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    bidirectional=True if num_dirs > 1 else False,
+                    dropout=dropout
+                )
+                self.linear = nn.Linear(num_dirs * hidden_size, hidden_size)
+
+            def forward(self, batch, batch_lens):  # batch: (B, S_L), batch_lens: (B)
+                # d_w: word embedding size
+                batch_emb = self.embedding(batch)  # (B, S_L, d_w)
+                batch_emb = batch_emb.transpose(0, 1)  # (S_L, B, d_w)
+
+                packed_input = pack_padded_sequence(batch_emb, batch_lens)
+
+                h_0 = torch.zeros((num_layers * num_dirs, batch.shape[0], hidden_size))  # (num_layers*num_dirs, B, d_h) = (4, B, d_h)
+                packed_outputs, h_n = self.gru(packed_input, h_0)  # h_n: (4, B, d_h)
+                outputs = pad_packed_sequence(packed_outputs)[0]  # outputs: (S_L, B, 2d_h)
+                outputs = torch.tanh(self.linear(outputs))  # (S_L, B, d_h)
+
+                forward_hidden = h_n[-2, :, :]
+                backward_hidden = h_n[-1, :, :]
+                hidden = torch.tanh(self.linear(torch.cat((forward_hidden, backward_hidden), dim=-1))).unsqueeze(0)  # (1, B, d_h)
+
+                return outputs, hidden
+        
+        encoder = Encoder()
+        ```
+    - Dot-product Attention 구현
+        ```python
+        class DotAttention(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            def forward(self, decoder_hidden, encoder_outputs):  # (1, B, d_h), (S_L, B, d_h) ,decoder_hidden 은 1개의 time step 이므로 (1,B,d_h) 임
+                query = decoder_hidden.transpose(0,1)  # (B, 1, d_h) 
+                key = encoder_outputs.transpose(0, 1)  # (B, S_L, d_h)
+
+                energy = torch.sum(torch.mul(key, query), dim=-1)  # (B, S_L) , mul 은 element-wise 곱셈(차원이 다를 경우 브로드캐스팅된 후에 곱셈이 수행됨)
+                
+                
+                attn_scores = F.softmax(energy, dim=-1)  # (B, S_L)
+                attn_values = torch.sum(torch.mul(encoder_outputs.transpose(0, 1), attn_scores.unsqueeze(2)), dim=1)  # (B, d_h)
+
+                return attn_values, attn_scores
+
+        dot_attn = DotAttention()
+        ```
+    - Decoder 구현
+        ```python
+        class Decoder(nn.Module):
+            def __init__(self, attention):
+                super().__init__()
+
+                self.embedding = nn.Embedding(vocab_size, embedding_size)
+                self.attention = attention
+                self.rnn = nn.GRU(
+                    embedding_size,
+                    hidden_size
+                )
+                self.output_linear = nn.Linear(2*hidden_size, vocab_size)
+
+            def forward(self, batch, encoder_outputs, hidden):  # batch: (B), encoder_outputs: (L, B, d_h), hidden: (1, B, d_h)  
+                # batch는 하나의 타임스텝에 대한것이기때문에 (1,B)에서 (B)만 남긴것
+                batch_emb = self.embedding(batch)  # (B, d_w)
+                batch_emb = batch_emb.unsqueeze(0)  # (1, B, d_w)
+
+                outputs, hidden = self.rnn(batch_emb, hidden)  # (1, B, d_h), (1, B, d_h)
+
+                attn_values, attn_scores = self.attention(hidden, encoder_outputs)  # (B, d_h), (B, S_L)
+                concat_outputs = torch.cat((outputs, attn_values.unsqueeze(0)), dim=-1)  # (1, B, 2d_h)
+
+                return self.output_linear(concat_outputs).squeeze(0), hidden  # (B, V), (1, B, d_h)
+
+        decoder = Decoder(dot_attn)
+        ```
+    - Seq2Seq with attention 모델 구축
+        ```python
+        class Seq2seq(nn.Module):
+            def __init__(self, encoder, decoder):
+                super(Seq2seq, self).__init__()
+
+                self.encoder = encoder
+                self.decoder = decoder
+
+            def forward(self, src_batch, src_batch_lens, trg_batch, teacher_forcing_prob=0.5):
+                # src_batch: (B, S_L), src_batch_lens: (B), trg_batch: (B, T_L)
+
+                encoder_outputs, hidden = self.encoder(src_batch, src_batch_lens)  # encoder_outputs: (S_L, B, d_h), hidden: (1, B, d_h)
+
+                input_ids = trg_batch[:, 0]  # (B)
+                batch_size = src_batch.shape[0]
+                outputs = torch.zeros(trg_max_len, batch_size, vocab_size)  # (T_L, B, V)
+
+                for t in range(1, trg_max_len):
+                    decoder_outputs, hidden = self.decoder(input_ids, encoder_outputs, hidden)  # decoder_outputs: (B, V), hidden: (1, B, d_h)
+
+                    outputs[t] = decoder_outputs
+                    _, top_ids = torch.max(decoder_outputs, dim=-1)  # top_ids: (B)
+
+                    input_ids = trg_batch[:, t] if random.random() > teacher_forcing_prob else top_ids
+
+                return outputs
+        seq2seq = Seq2seq(encoder, decoder)
+        ```
+    - 모델 학습해보기
+        ```python
+        # V: vocab size
+        outputs = seq2seq(src_batch, src_batch_lens, trg_batch)  # (T_L, B, V)
+
+        print(outputs.shape)
+        '''
+        torch.Size([22, 10, 100])
+        '''
+        ```
+        ```python
+        loss_function = nn.CrossEntropyLoss()
+
+        preds = outputs[1:, :, :].transpose(0, 1)  # (B, T_L-1, V)
+        loss = loss_function(preds.reshape(-1, vocab_size), trg_batch[:,1:].reshape(-1,1).squeeze(1)) # trg_batch -> (10,20)
+
+        print(loss)
+        '''
+        tensor(4.6156, grad_fn=<NllLossBackward>)
+        '''
+        ```
+    - 모델 추론하기
+        ```python
+        sample_sent = [4, 10, 88, 46, 72, 34, 14, 51]
+        sample_len = len(sample_sent)
+
+        sample_batch = torch.LongTensor(sample_sent).unsqueeze(0)  # (1, L)
+        sample_batch_len = torch.LongTensor([sample_len])  # (1)
+
+        encoder_output, hidden = seq2seq.encoder(sample_batch, sample_batch_len)  # hidden: (4, 1, d_h)
+        ```
+        ```python
+        input_id = torch.LongTensor([sos_id]) # (1)
+        output = []
+
+        for t in range(1, trg_max_len):
+            decoder_output, hidden = seq2seq.decoder(input_id, encoder_output, hidden)  # decoder_output: (1, V), hidden: (4, 1, d_h)
+
+            _, top_id = torch.max(decoder_output, dim=-1)  # top_ids: (1)
+
+            if top_id == eos_id:
+                break
+            else:
+                output += top_id.tolist()
+                input_id = top_id
+        
+        print(output)
+        '''
+        [93, 87, 42, 42, 42, 42, 42, 25, 86, 16, 1, 67, 16, 11, 80, 9, 99, 86, 16, 11, 80]
+        '''
+        ```
+    - Concat Attention(Bahdanau Attention)
+        - Attetion
+            ```python
+            class ConcatAttention(nn.Module):
+                def __init__(self):
+                    super().__init__()
+
+                    self.w = nn.Linear(2*hidden_size, hidden_size, bias=False)
+                    self.v = nn.Linear(hidden_size, 1, bias=False)
+
+                def forward(self, decoder_hidden, encoder_outputs):  # (1, B, d_h), (S_L, B, d_h)
+                    src_max_len = encoder_outputs.shape[0]
+                    
+                    # x = torch.tensor([[1],[2]])
+                    # print(x.repeat(2,3,4))
+                    ## tensor([[[1, 1, 1, 1],
+                    ## [2, 2, 2, 2],
+                    ## [1, 1, 1, 1],
+                    ## [2, 2, 2, 2],
+                    ## [1, 1, 1, 1],
+                    ## [2, 2, 2, 2]],
+
+                    ##[[1, 1, 1, 1],
+                    ## [2, 2, 2, 2],
+                    ## [1, 1, 1, 1],
+                    ## [2, 2, 2, 2],
+                    ## [1, 1, 1, 1],
+                    ## [2, 2, 2, 2]]])
+                    
+                    decoder_hidden = decoder_hidden.transpose(0, 1).repeat(1, src_max_len, 1)  # (B, S_L, d_h)
+                    encoder_outputs = encoder_outputs.transpose(0, 1)  # (B, S_L, d_h)
+
+                    concat_hiddens = torch.cat((decoder_hidden, encoder_outputs), dim=2)  # (B, S_L, 2d_h)
+                    energy = torch.tanh(self.w(concat_hiddens))  # (B, S_L, d_h)
+
+                    attn_scores = F.softmax(self.v(energy), dim=1)  # (B, S_L, 1)
+                    attn_values = torch.sum(torch.mul(encoder_outputs, attn_scores), dim=1)  # (B, d_h)
+
+                    return attn_values, attn_scores
+            concat_attn = ConcatAttention()
+            ```
+        - decoder
+            ```python
+            class Decoder(nn.Module):
+                def __init__(self, attention):
+                    super().__init__()
+
+                    self.embedding = nn.Embedding(vocab_size, embedding_size)
+                    self.attention = attention
+                    self.rnn = nn.GRU(
+                        embedding_size + hidden_size,
+                        hidden_size
+                    )
+                    self.output_linear = nn.Linear(hidden_size, vocab_size)
+
+                def forward(self, batch, encoder_outputs, hidden):  # batch: (B), encoder_outputs: (S_L, B, d_h), hidden: (1, B, d_h)  
+                    batch_emb = self.embedding(batch)  # (B, d_w)
+                    batch_emb = batch_emb.unsqueeze(0)  # (1, B, d_w)
+
+                    attn_values, attn_scores = self.attention(hidden, encoder_outputs)  # (B, d_h), (B, S_L)
+
+                    concat_emb = torch.cat((batch_emb, attn_values.unsqueeze(0)), dim=-1)  # (1, B, d_w+d_h)
+
+                    outputs, hidden = self.rnn(concat_emb, hidden)  # (1, B, d_h), (1, B, d_h)
+
+                    return self.output_linear(outputs).squeeze(0), hidden  # (B, V), (1, B, d_h)
+            decoder = Decoder(concat_attn)
+            ```
+        - 코드 실행
+            ```python
+            seq2seq = Seq2seq(encoder, decoder)
+            outputs = seq2seq(src_batch, src_batch_lens, trg_batch)
+
+            print(outputs.shape)
+            '''
+            torch.Size([22, 10, 100])
+            '''
+            ```
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
