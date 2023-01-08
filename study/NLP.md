@@ -838,7 +838,7 @@
     - start 토큰를 vocabulary 상에 정의해두고 디코더 타임스텝의 제일 처음에 넣어줌으로써 실직적인 단어 예측이 수행됨. 
     - end 토큰이 나올때까지 디코더 RNN을 구동하고 이 토큰이 실제로 생성되면 여기까지 최종적인 출력을 해서 더 이상 단어를 생성하지 않고 종료하도록 함.
 - Attention
-    - 인코더의 마지막 hidden state vector에 앞서 나온 모든 많은 정보들을 우겨넣게 되면 아무리 LSTM 등으로 의존도를 해결했다고 하더라도 마지막 타임스텝으로 갈수록 앞쪽 정보는 변질되거나 소실될 수 있음 -> 따라서 Attention 모듈을 추가로 사용하여 디코더에서 인코더의 마지막 타임스텝에서 나온 hidden state vector에만 의존하는것이 아니라 입력문장에서 주어졌던 각각의 단어들을 인코딩한 각각의 encoding hidden state vector를 선별적으로 가져가서 사용할수 있도록 만듦
+    - 인코더의 마지막 hidden state vector에 앞서 나온 모든 많은 정보들을 우겨넣게 되면 아무리 LSTM 등으로 의존도를 해결했다고 하더라도 마지막 타임스텝으로 갈수록 앞쪽 정보는 변질되거나 소실될 수 있음 -> 따라서 Attention 모듈을 추가로 사용하여 디코더에서 인코더의 마지막 타임스텝에서 나온 hidden state vector에만 의존하는것이 아니라 입력문장에서 주어졌던 각각의 단어들을 인코딩한 각각의 encoding hidden state vector를 선별적으로 가져가서 사용할수 있도록 만듦    
         ![](./img/seq2seq2.gif)
         ![](./img/seq2seq3.gif)
     - 디코더에서 생성된 hidden state vector와 인코더 단의 각 워드별로의 hidden state vector 둘간의 score를 구할때는 여러가지 방법이 존재함
@@ -1491,11 +1491,12 @@
 
 ## #7
 
-### Transformer
+### Transformer (Attention)
 - Transformer : Attention만을 Sequence 데이터를 입력으로 받고 Sequence 형태의 데이터를 예측할 수 있는 모델 구조
-- 모델 구조 이미지
+- 인코딩할때 RNN계열 모델보다 시간은 빠르지만 메모리는 많이 필요하게 됨(RNN은 다음 타임스텝으로 가기위해서는 전 타임 스텝의 결과를 알아야하지만 Transformer는 한번에 학습 가능. 하지만 그만큼 한번에 많은 메모리를 필요하게 됨)
+- 모델 구조 이미지    
     ![](./img/Transformer.jpg)
-- Positional Encoder
+- Positional Encoder    
     ![](./img/Transformer1.jpg)
     ![](./img/Transformer2.jpg)
     - 코드
@@ -1541,7 +1542,290 @@
                 # [seq_len = 30, d_model = 512]
                 # it will add with tok_emb : [128, 30, 512]  
         ```
+- Multi-Head Attention (+ Scaled Dot Product Attention)
+    - Attention (Scaled Dot Product Attention)
+        - h1으로 encoding 하는 부분의 Attention 예시    
+            ![](./img/Transformer3.jpg)
+            ![](./img/Transformer4.jpg)
+            (query가 하나일경우 -> 한개의 타임스텝에 대해 encoding 하는 경우 Attention 식(q만 벡터))
+        - 전체 타임 스텝에 대한 Attention 식 (Scaled Dot Product Attention)    
+            ![](./img/Transformer5.jpg)
+            ![](./img/Transformer6.jpg)
+            - 왜 $d_k$ 를 나누어주는 것일까?
+                - 차원이 커지게 되면 행렬 내적연산에서 더해지는 값이 많이질것이고 그에 따라 표준편차가 커질수가 있게됨. 따라서 차원의 개수만큼에 루트를 씌워 표준편차를 맞춰줌
+        - 코드
+            ```python
+            class ScaleDotProductAttention(nn.Module):
+            """
+            compute scale dot product attention
 
+            Query : given sentence that we focused on (decoder)
+            Key : every sentence to check relationship with Query(encoder)
+            Value : every sentence same with Key (encoder)
+            """
+
+            def __init__(self):
+                super(ScaleDotProductAttention, self).__init__()
+                self.softmax = nn.Softmax(dim=-1)
+
+            def forward(self, q, k, v, mask=None, inf_value=1e12):
+                # input is 4 dimension tensor
+                # [batch_size, head, length, d_tensor]
+                batch_size, head, length, d_tensor = k.size()
+
+                # 1. dot product Query with Key^T to compute similarity
+                k_t = k.transpose(2, 3)  # transpose # (B,n_head,d,L)
+                score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product #(B,n_head,L,L)
+
+                # 2. apply masking (opt)
+                if mask is not None: # (B,L,L)
+                    mask = mask.unsqueeze(1)  # (B, 1, L, L)
+                    score = score.masked_fill(mask == False, -*inf_value) # softmax 적용시 e^(-inf) = 0이 되므로 0대신 -inf를 넣어줌 0을 넣으면 e^0 = 1 로 1이 나오게됨
+
+                # 3. pass them softmax to make [0, 1] range
+                score = self.softmax(score)
+
+                # 4. multiply with Value
+                v = score @ v # @ = matmul , mul은 원소별 곱셈 , matmul은 내적
+
+                return v, score
+            ```
+            - 참고: masked_fill
+                - broadcast되어서 적용됨
+                ```python
+                a = torch.LongTensor([[1,2,3],[4,5,6]])
+                b = torch.LongTensor([[1,0,0]])
+                print(a.shape)
+                print(b.shape)
+
+                a = a.masked_fill(b==0,100)
+                print(a)
+                '''
+                torch.Size([2, 3])
+                torch.Size([1, 3])
+                tensor([[  1, 100, 100],
+                        [  4, 100, 100]])
+                '''
+                ```
+    - Multi-Head Attention
+        - Multi-Head Attention은 Attention을 여러개 사용하여 concat하여 결과를 내는것임.
+        - $W_Q$ , $W_K$, $W_V$ 가 head 개수만큼 적용이 되면서 모델의 다양성을 확보할 수 있음    
+        ![](./img/Transformer7.jpg)
+        ![](./img/Transformer8.jpg)
+        ![](./img/Transformer9.jpg)
+        ![](./img/Transformer10.jpg)
+
+        - 코드
+            ```python
+            class MultiHeadAttention(nn.Module):
+
+                def __init__(self, d_model, n_head):
+                    super(MultiHeadAttention, self).__init__()
+                    self.n_head = n_head
+                    self.attention = ScaleDotProductAttention()
+                    self.w_q = nn.Linear(d_model, d_model)
+                    self.w_k = nn.Linear(d_model, d_model)
+                    self.w_v = nn.Linear(d_model, d_model)
+                    self.w_concat = nn.Linear(d_model, d_model)
+
+                def forward(self, q, k, v, mask=None):
+                    # 1. dot product with weight matrices
+                    q, k, v = self.w_q(q), self.w_k(k), self.w_v(v) # [batch_size, length, d_model]
+
+                    # 2. split tensor by number of heads
+                    q, k, v = self.split(q), self.split(k), self.split(v) # [batch_size, head, length, d_tensor] d_tensor = d_model // self.n_head
+
+                    # 3. do scale dot product to compute similarity
+                    out, attention = self.attention(q, k, v, mask=mask)
+                    
+                    # 4. concat and pass to linear layer
+                    out = self.concat(out)
+                    out = self.w_concat(out)
+
+                    return out
+
+                def split(self, tensor):
+                    """
+                    split tensor by number of head
+
+                    :param tensor: [batch_size, length, d_model]
+                    :return: [batch_size, head, length, d_tensor]
+                    """
+                    batch_size, length, d_model = tensor.size()
+
+                    d_tensor = d_model // self.n_head
+                    tensor = tensor.view(batch_size, length, self.n_head, d_tensor).transpose(1, 2)
+                    # it is similar with group convolution (split by number of heads)
+
+                    return tensor
+
+                def concat(self, tensor):
+                    """
+                    inverse function of self.split(tensor : torch.Tensor)
+
+                    :param tensor: [batch_size, head, length, d_tensor]
+                    :return: [batch_size, length, d_model]
+                    """
+                    batch_size, head, length, d_tensor = tensor.size()
+                    d_model = head * d_tensor
+
+                    tensor = tensor.transpose(1, 2).contiguous().view(batch_size, length, d_model)
+                    return tensor
+            ```
+- Masked Self-Attention
+    - Decoder 부분에서 주의해야할점은 아래와 같은 예시에서 `SOS 나는 집에` 의 입력 벡터에 따라 쿼리와 키가 존재할때 추론을 할때는 쿼리 단어까지만 값을 알고 있기 때문에 쿼리 뒤 단어는 키로써 연산을 할수 없음. 따라서 대각선 기준 위쪽 부분을 모두 0으로 masking 해줘야함    
+        ![](./img/Transformer11.jpg)
+    - 코드
+        - 예시 데이터
+            ```python
+            pad_id = 0
+            vocab_size = 100
+
+            data = [
+            [62, 13, 47, 39, 78, 33, 56, 13],
+            [60, 96, 51, 32, 90],
+            [35, 45, 48, 65, 91, 99, 92, 10, 3, 21],
+            [66, 88, 98, 47],
+            [77, 65, 51, 77, 19, 15, 35, 19, 23]
+            ]
+            ```
+            ```python
+            def padding(data):
+                max_len = len(max(data, key=len))
+                print(f"Maximum sequence length: {max_len}")
+
+                for i, seq in enumerate(tqdm(data)):
+                    if len(seq) < max_len:
+                    data[i] = seq + [pad_id] * (max_len - len(seq))
+
+                return data, max_len
+            
+            data, max_len = padding(data)
+            print(data) # (5,10)
+            '''
+            [[62, 13, 47, 39, 78, 33, 56, 13,  0,  0], 
+             [60, 96, 51, 32, 90,  0,  0,  0,  0,  0], 
+             [35, 45, 48, 65, 91, 99, 92, 10,  3, 21], 
+             [66, 88, 98, 47,  0,  0,  0,  0,  0,  0], 
+             [77, 65, 51, 77, 19, 15, 35, 19, 23,  0]]
+            '''
+            ```
+        - 마스크 구축
+            ```python
+            d_model = 8  # model의 hidden size -> mask 부분을 살펴보기 위하여 차원수를 적게 설정함
+            num_heads = 2  # head의 개수
+            inf = 1e12
+
+            embedding = nn.Embedding(vocab_size, d_model) # 단어를 d차원으로 임베딩시켜주기
+
+            # B: batch size, L: maximum sequence length
+            batch = torch.LongTensor(data)  # (B, L)
+            batch_emb = embedding(batch)  # (B, L, d_model)
+
+            print(batch_emb.shape)
+            '''
+            torch.Size([5, 10, 8]) # (B,L,d)
+            '''
+            ```
+            ```python
+            # true는 attention이 적용될 부분, false 는 masking이 될 자리
+            padding_mask = (batch != pad_id).unsqueeze(1)  # (B, 1, L)
+
+            print(padding_mask)
+            print(padding_mask.shape)
+            '''
+            tensor([[[ True,  True,  True,  True,  True,  True,  True,  True, False, False]],
+                    [[ True,  True,  True,  True,  True, False, False, False, False, False]],
+                    [[ True,  True,  True,  True,  True,  True,  True,  True,  True,  True]],
+                    [[ True,  True,  True,  True, False, False, False, False, False, False]],
+                    [[ True,  True,  True,  True,  True,  True,  True,  True,  True, False]]])
+            torch.Size([5, 1, 10])
+            '''
+            ```
+            ```python
+            nopeak_mask = torch.ones([1, max_len, max_len], dtype=torch.bool)  # (1, L, L)
+            nopeak_mask = torch.tril(nopeak_mask)  # (1, L, L) # 대각선 기준으로 위에 부분을 모두 0으로 만들어줌
+
+            print(nopeak_mask)
+            print(nopeak_mask.shape)
+            '''
+            tensor([[[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True,  True]]])
+            torch.Size([1, 10, 10])
+            '''
+            ```
+            ```python
+            # padding_mask -> (B,1,L) , nopeak_mask -> (1,L,L) 
+            mask = padding_mask & nopeak_mask  # (B, L, L) broadcasting
+
+            print(mask)
+            print(mask.shape)
+            '''
+            tensor([[[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False]],
+
+                    [[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False]],
+
+                    [[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True,  True]],
+
+                    [[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False]],
+
+                    [[ True, False, False, False, False, False, False, False, False, False],
+                    [ True,  True, False, False, False, False, False, False, False, False],
+                    [ True,  True,  True, False, False, False, False, False, False, False],
+                    [ True,  True,  True,  True, False, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True, False, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True, False, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True, False, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True, False, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True, False],
+                    [ True,  True,  True,  True,  True,  True,  True,  True,  True, False]]])
+            torch.Size([5, 10, 10]) # (B,L,L)
+            '''
+            ```
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 - https://github.com/hyunwoongko/transformer
