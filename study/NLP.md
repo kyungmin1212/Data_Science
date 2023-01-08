@@ -19,13 +19,13 @@
         3. 문장에 있는 단어들의 원핫벡터를 모두 더하여 문장 표현
         (즉, 단어들을 Bag에 넣는다고 생각)
     - Bag-of-words 예시    
-        ![](./img/Bag-of-words.jpg)
+        ![](./img/Bag-of-words.jpg)    
 - NaiveBayes Classifier : Bag-of-words를 활용한 대표적인 문서 분류 기법
     - 이론    
-        ![](./img/NaiveBayes_Classifier.jpg)
+        ![](./img/NaiveBayes_Classifier.jpg)    
     - 예시    
-        ![](./img/NaiveBayes_Classifier1.jpg)
-        ![](./img/NaiveBayes_Classifier2.jpg)
+        ![](./img/NaiveBayes_Classifier1.jpg)    
+        ![](./img/NaiveBayes_Classifier2.jpg)    
   
 
 #### References
@@ -59,12 +59,12 @@
             - 입출력 쌍 : (I,study) // (study,I), (study,math) // (math,study)
         3. 입출력 레이어의 노드 수는 사전의 사이즈와 같음 (여기선 문장의 단어수가 3개이므로 vocabulary size = 3)
         4. 입출력 순서쌍 사이에 두개의 입출력 레이어와 소프트맥스를 넣고 학습 진행(vocabulary size 차원 -> vocabulary size 보다 작은 차원 -> vocabulary size 차원)    
-        ![](./img/Word2Vec.jpg)
+        ![](./img/Word2Vec.jpg)    
 
         (우리는 이 중에서 input 단어가 들어갔을때 W1을 거쳐 hidden layer에 존재하는 벡터를 임베딩 벡터로 사용)
     - Property of Word2Vec
         - 단어들 사이에 관계를 표현해보면 비슷한 관계는 같은 벡터를 가짐    
-            ![](./img/Word2Vec1.jpg)
+            ![](./img/Word2Vec1.jpg)    
 
 - GloVe
     - Word2Vec과 더불어 많이 쓰이는 워드 임베딩 방법
@@ -73,7 +73,7 @@
         - 각 입출력 단어 쌍들에 대해 그 학습 데이터에서 그 두 단어가 한 윈도우 내에서 총 몇 번 동시에 등장했는지를 사전에 미리 계산 $P_{ij}$
         - 입력워드의 임베딩 벡터 $u_i$ 와 출력워드의 임베딩 벡터 $v_j$의 내적값이 한 윈도우 안에서 두 단어가 동시에 나타난 횟수인 $P_{ij}$에 가까워질 수 있도록 학습 진행함
     - Glove 수식    
-        ![](./img/glove.jpg)
+        ![](./img/glove.jpg)    
 
 - Word2Vec 실습 (+ CBOW, SkipGram)
     - 실습 데이터
@@ -317,23 +317,23 @@
 
 ### RNN(Recurrent Neural Network)
 - RNN 종류    
-    ![](./img/rnn.jpg)
+    ![](./img/rnn.jpg)    
 - RNN 기본 구조    
-    ![](./img/RNN1.jpg)
+    ![](./img/RNN1.jpg)    
 - RNN 연산 과정    
-    ![](./img/RNN2.jpg)
+    ![](./img/RNN2.jpg)    
 - RNN many-to-many 학습 추론 과정 예시
     - hello 단어를 통한 설명
     - 학습과정    
-        ![](./img/RNN3.jpg)
+        ![](./img/RNN3.jpg)    
     - 추론과정
         - h라는 문자열 하나가 들어가게 되면 h의 결과값 y가 다음 input으로 들어가게 되고 또 다시 그 input의 결과값이 다시 다음 input으로 들어가게 됨    
-        ![](./img/RNN4.jpg)
+        ![](./img/RNN4.jpg)    
 - Backpropagation through time (BPTT)
     - 각 타임 스텝마다 예측값과 실제값의 비교를 통한 loss function을 통해서 전체 네트워크가 학습을 진행됨 -> 전체 시퀀스의 길이가 길어지게 되면 메모리 문제등으로 인하여 학습이 어려워짐
     - 실제 한번 학습을 진행하기 위해서는 하나의 입력의 output을 구하고 그 output과 입력을 통해서 다시 output을 구하고 이런식으로 모든 output을 구하게 되면 마지막 타임스텝쯤에는 제일 처음의 타임 스텝부터 동일한 matrix가 매 타임 스텝마다 곱해지게 되면서 메모리 문제가 발생할수 있음 또는 Vanishing/Exploding Gradient Problem 발생 가능 
     - truncation을 이용하여 제한된 길이의 시퀀스 만으로 학습을 진행하는 방법을 사용(Truncated-BPTT)    
-        ![](./img/RNN5.jpg)
+        ![](./img/RNN5.jpg)    
 
 - RNN 실습
     - 샘플 데이터 (전체 vocab_size = 100, pad_id = 0)
@@ -439,13 +439,13 @@
         - 앞서 pad_id 0을 길이를 맞춰주기 위해 넣어주었는데 이 0은 아무런 의미가 없는 dummy 데이터임, 의미적으로 아무런 중요도 없고 굳이 계산을 하지 않아도 되는 부분 (메모리와 연산량 낭비) -> PackedSequence를 통해 해결 가능
         - 정렬을 하지않고 PackedSequence를 사용하는 경우
             - T=2,3인 부분은 중간에 pad가 끼어 있어 어쩔수 없이 0을 넣어서 연산을 해주어야함(정렬을 하지 않으면 PackedSequence의 장점을 살리지 못할수도 있음)    
-            ![](./img/packedsequence.gif) 
+            ![](./img/packedsequence.gif)    
         - 정렬 후에 PackedSequence 적용
             - 배치내의 문장의 길이를 기준으로 정렬해주고 넣어주게 된다면 RNN에서 다음 타임 스텝으로 넘어갈때마다 배치사이즈를 조절하게 된다면 메모리와 연산량 낭비 문제를 최대한 해결가능(더 빠른 연산 가능)(정렬을 하게 된다면 pad를 넣은 부분을 하나도 사용하지 않게 됨)
             - 연산량이 (5 x 6 x 1) = 30 에서 (5+4+3+3+2+1) = 18로 크게 줄어들게 됨    
-            ![](./img/packedsequence1.gif)
-        - PackedSequence의 마지막 hidden 부분은 아래와 같이 알아서 마지막 부분을 선택해서 출력하게됨
-            ![](./img/packedsequence2.jpg)
+            ![](./img/packedsequence1.gif)    
+        - PackedSequence의 마지막 hidden 부분은 아래와 같이 알아서 마지막 부분을 선택해서 출력하게됨    
+            ![](./img/packedsequence2.jpg)    
         - 코드
             ```python
             from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -531,7 +531,7 @@
             '''
             ```
         - 코드부분을 그림을 통한 이해     
-            ![](./img/packedsequence3.jpg)
+            ![](./img/packedsequence3.jpg)    
             
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
@@ -552,18 +552,18 @@
         - input gate를 통해서 현재 입력과 이전 출력의 결과를 시그모이드와 tanh를 각각 통과시켜 0과 1사이 값과 -1과 1 사이값을 얻어내는데 현재 입력과 이전 출력의 결과를 얼마나 c에 저장할지(0과 1 사이값)와 어떤 정보를 c에 저장할지 후보(-1과 1 사이값)를 정함
         - output gate를 통해서 현재 입력과 이전 출력의 결과를 0과 1 사이값을 얻어내는데 장기기억부분의 정보인 $c_t$ 를 얼마나 꺼내쓸지를 정해줌    
         ( $c_t$ 에 tanh를 적용시켜 -1과 1 사이값으로 만들어주고 $c_t$에는 이미 현재 셀의 정보가 들어가 있기 때문에(input gate를 통해) 현재 입력과 이전 출력의 결과를 통해 얼마만큼 $c_t$에서 정보를 꺼내써야 좋을지를 output gate가 정함)    
-        ![](./img/LSTM1.jpg)
-        ![](./img/LSTM2.jpg)
-        ![](./img/LSTM3.jpg)
-        ![](./img/LSTM4.jpg)
-        ![](./img/LSTM5.jpg)
+        ![](./img/LSTM1.jpg)    
+        ![](./img/LSTM2.jpg)    
+        ![](./img/LSTM3.jpg)    
+        ![](./img/LSTM4.jpg)    
+        ![](./img/LSTM5.jpg)    
     
 - GRU
     - GRU는 LSTM의 모델 구조를 조금 더 경량화 해서 적은 메모리 요구량과 빠른 계산시간이 가능하도록 만든 모델
     - LSTM에서 두가지 종류의 벡터로 존재하던 cell state vector(장기기억)와 hidden state vector(단기기억)를 하나로 합쳐서 hidden state vector(cell state vector와 비슷한 역할을 함)만이 존재한다는것이 가장 큰 특징
     - 경량화를 진행했음에도 LSTM에 뒤지지 않고 비슷한 성능을 보여줌
     - 구조    
-        ![](./img/GRU.jpg)
+        ![](./img/GRU.jpg)    
 
 - LSTM, GRU 코드 실습
     - 데이터 전처리 (0 pad + 문장길이 정렬)
@@ -792,14 +792,14 @@
         ```
         - output shape을 이해하기 위한 그림
             - bidirectional = True : 양방향을 concat 하기때문에 output의 shape이 2배가 됨    
-                ![](./img/bidirectional.jpg)
+                ![](./img/bidirectional.jpg)    
             - multilayer : layer가 쌓이지만 output의 shape은 그대로 나오기 때문에 변함없고 마지막 단에 나오는 h_n 만 쌓인 layer만큼 증가하여 나오게 됨    
-                ![](./img/multilayer.jpg)
+                ![](./img/multilayer.jpg)    
 
         - outputs[-1]과 h_n은 전혀 다르다는 것을 명심해야함
             - outputs는 차원이 1024로 multilayer의 마지막 layer에서의 순방향과 역방향의 값이 concat되는것을 알수 있음.
-            - 여기서 주의할점이 h_n[-1]이 multilayer마지막 단의 역방향, h_n[-2]가 순방향인데 이 둘이 concat되어서 outputs[-1]이 만들어진게 아닌가 하는 생각이 들수 있음. -> 하지만 여기서 h_n[-1]은 역방향이므로 outputs[0]에서 [512:] 값이랑 동일함. (역방향은 순방향 뒷부분에 concat 됨. 즉 [:512] 는 순방향 , [512:]는 역방향을 의미) h_n[-2]는 순방향이므로 outputs[-1][:512]랑 동일
-            ![](./img/bidirectional_multilayer2.jpg)
+            - 여기서 주의할점이 h_n[-1]이 multilayer마지막 단의 역방향, h_n[-2]가 순방향인데 이 둘이 concat되어서 outputs[-1]이 만들어진게 아닌가 하는 생각이 들수 있음. -> 하지만 여기서 h_n[-1]은 역방향이므로 outputs[0]에서 [512:] 값이랑 동일함. (역방향은 순방향 뒷부분에 concat 됨. 즉 [:512] 는 순방향 , [512:]는 역방향을 의미) h_n[-2]는 순방향이므로 outputs[-1][:512]랑 동일    
+            ![](./img/bidirectional_multilayer2.jpg)    
             - 코드
                 ```python
                 # 1배치내의 첫번째 문장으로 테스트
@@ -832,21 +832,21 @@
 
 ### Sequence to Sequence with Attention
 - Seq2Seq Model은 RNN 구조 중 many to many 형태에 해당함 (many to many 중에서도 입력 Sequence를 모두 다 읽은 후(Encoder) 그 다음에 출력 Sequence를 생성(Decoder하는 모델)    
-    ![](./img/seq2seq.jpg)
+    ![](./img/seq2seq.jpg)    
 - Are you free tomorrow? 라고 질문했을때 그에 대응하는 문장으로써 Yes, what`s up? 이라는 문장을 예측하여 생성하는 예시    
-    ![](./img/seq2seq1.jpg)
+    ![](./img/seq2seq1.jpg)    
     - start 토큰를 vocabulary 상에 정의해두고 디코더 타임스텝의 제일 처음에 넣어줌으로써 실직적인 단어 예측이 수행됨. 
     - end 토큰이 나올때까지 디코더 RNN을 구동하고 이 토큰이 실제로 생성되면 여기까지 최종적인 출력을 해서 더 이상 단어를 생성하지 않고 종료하도록 함.
 - Attention
     - 인코더의 마지막 hidden state vector에 앞서 나온 모든 많은 정보들을 우겨넣게 되면 아무리 LSTM 등으로 의존도를 해결했다고 하더라도 마지막 타임스텝으로 갈수록 앞쪽 정보는 변질되거나 소실될 수 있음 -> 따라서 Attention 모듈을 추가로 사용하여 디코더에서 인코더의 마지막 타임스텝에서 나온 hidden state vector에만 의존하는것이 아니라 입력문장에서 주어졌던 각각의 단어들을 인코딩한 각각의 encoding hidden state vector를 선별적으로 가져가서 사용할수 있도록 만듦    
-        ![](./img/seq2seq2.gif)
-        ![](./img/seq2seq3.gif)
+        ![](./img/seq2seq2.gif)    
+        ![](./img/seq2seq3.gif)    
     - 디코더에서 생성된 hidden state vector와 인코더 단의 각 워드별로의 hidden state vector 둘간의 score를 구할때는 여러가지 방법이 존재함
         - 일반적인 내적(dot), 좀더 확장된 generalized dot product, concat을 통한 연산 ( $h_t$ 는 디코더에서 주어지는 hidden state vector , $h_s$ 는 인코더 단에서 각 워드별로의 hidden state vector )
         - 일반적인 내적은 같은 차원에 있는 값들끼리만 곱해짐. -> 가운데에 행렬을 추가하여 같은 차원이 아니더라도 값에 가중치를 부여할수 있도록 해줌    
             ((1,3)과 (2,-5)롤 단순 내적하면 1과 2 끼리 연산, 3과 -5 끼리 연산, 즉 같은 차원끼리만 연산이 됨. 하지만 그 사이에 (1,3) ((a,b),(c,d)) (2,-5) 를 추가해주게 된다면 (1a+3c,1b+3d) (2,-5) -> (2(1a+3c),-5(1b+3d)) 로 다른 차원끼리도 가중치를 부여해줄수 있음
         - concat 방식은 두개의 hidden state vector를 concat하고 새로운 neural net을 만드는 방식임. $W_1$ 는 concat된 벡터를 특정 차원으로 만들어주고 $W_2$ 는 그 특정 차원을 하나의 score 값, 즉 scalar 값으로 만들어줌(그러므로 $W_1$ 은 행렬이지만 , $W_2$ 는 벡터가 됨)    
-            ![](./img/seq2seq4.jpg)
+            ![](./img/seq2seq4.jpg)    
 
 - Seq2Seq 실습
     - src_data를 trg_data로 변환 train 후 src_sent 에 대해 test 결과 생성
@@ -1078,8 +1078,8 @@
         '''
         torch.Size([22, 10, 100])
         '''
-        ```
-        ![](./img/seq2seq5.jpg)
+        ```    
+        ![](./img/seq2seq5.jpg)    
         ```python
         loss_function = nn.CrossEntropyLoss()
 
@@ -1482,7 +1482,7 @@
 - k라는 beam size를 가지고 타임스텝마다 스코어가 가장 높은 k개의 candidate를 우리가 고려하고 추적하는 것이 beam search의 핵심 아이디어    
 ( $k^T$ 가 아니라 매 타임스텝마다 그중에서 가장 높은 k개의 candidate만 뽑아가는것(= 계속 k개의 후보만 존재))
 - Beam size가 2일 경우 예시    
-    ![](./img/beamsearch.gif)
+    ![](./img/beamsearch.gif)    
 
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
@@ -1495,10 +1495,10 @@
 - Transformer : Attention만을 Sequence 데이터를 입력으로 받고 Sequence 형태의 데이터를 예측할 수 있는 모델 구조
 - 인코딩할때 RNN계열 모델보다 시간은 빠르지만 메모리는 많이 필요하게 됨(RNN은 다음 타임스텝으로 가기위해서는 전 타임 스텝의 결과를 알아야하지만 Transformer는 한번에 학습 가능. 하지만 그만큼 한번에 많은 메모리를 필요하게 됨)
 - 모델 구조 이미지    
-    ![](./img/Transformer.jpg)
+    ![](./img/Transformer.jpg)    
 - Positional Encoder    
-    ![](./img/Transformer1.jpg)
-    ![](./img/Transformer2.jpg)
+    ![](./img/Transformer1.jpg)    
+    ![](./img/Transformer2.jpg)    
     - 코드
         ```python
         class PositionalEncoding(nn.Module):
@@ -1545,12 +1545,12 @@
 - Multi-Head Attention (+ Scaled Dot Product Attention)
     - Attention (Scaled Dot Product Attention)
         - h1으로 encoding 하는 부분의 Attention 예시    
-            ![](./img/Transformer3.jpg)
-            ![](./img/Transformer4.jpg)
+            ![](./img/Transformer3.jpg)    
+            ![](./img/Transformer4.jpg)    
             (query가 하나일경우 -> 한개의 타임스텝에 대해 encoding 하는 경우 Attention 식(q만 벡터))
         - 전체 타임 스텝에 대한 Attention 식 (Scaled Dot Product Attention)    
-            ![](./img/Transformer5.jpg)
-            ![](./img/Transformer6.jpg)
+            ![](./img/Transformer5.jpg)    
+            ![](./img/Transformer6.jpg)    
             - 왜 $d_k$ 를 나누어주는 것일까?
                 - 차원이 커지게 되면 행렬 내적연산에서 더해지는 값이 많이질것이고 그에 따라 표준편차가 커질수가 있게됨. 따라서 차원의 개수만큼에 루트를 씌워 표준편차를 맞춰줌
         - 코드
@@ -1610,10 +1610,10 @@
     - Multi-Head Attention
         - Multi-Head Attention은 Attention을 여러개 사용하여 concat하여 결과를 내는것임.
         - $W_Q$ , $W_K$, $W_V$ 가 head 개수만큼 적용이 되면서 모델의 다양성을 확보할 수 있음    
-        ![](./img/Transformer7.jpg)
-        ![](./img/Transformer8.jpg)
-        ![](./img/Transformer9.jpg)
-        ![](./img/Transformer10.jpg)
+        ![](./img/Transformer7.jpg)    
+        ![](./img/Transformer8.jpg)    
+        ![](./img/Transformer9.jpg)    
+        ![](./img/Transformer10.jpg)    
 
         - 코드
             ```python
@@ -1674,7 +1674,7 @@
             ```
 - Masked Self-Attention
     - Decoder 부분에서 주의해야할점은 아래와 같은 예시에서 `SOS 나는 집에` 의 입력 벡터에 따라 쿼리와 키가 존재할때 추론을 할때는 쿼리 단어까지만 값을 알고 있기 때문에 쿼리 뒤 단어는 키로써 연산을 할수 없음. 따라서 대각선 기준 위쪽 부분을 모두 0으로 masking 해줘야함    
-        ![](./img/Transformer11.jpg)
+        ![](./img/Transformer11.jpg)    
     - 코드
         - 예시 데이터
             ```python
