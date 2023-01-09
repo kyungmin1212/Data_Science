@@ -533,3 +533,68 @@
 - https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html
 - https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html
 - https://github.com/hyunwoongko/transformer
+
+---
+
+## #4
+
+### pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기)
+- 예시 코드
+    ```python
+    from torch.nn.utils.rnn import pad_sequence
+
+    a = torch.ones(25, 300)
+    b = torch.ones(22, 300)
+    c = torch.ones(15, 300)
+    print(pad_sequence([a, b, c]).size())
+
+    '''
+    torch.Size([25, 3, 300])
+    '''
+    ```
+    ```python
+    from torch.nn.utils.rnn import pad_sequence
+
+    a = torch.ones(4, 6) # a문장의 길이는 4 , embedding은 6
+    b = torch.ones(5, 6) # b문장의 길이는 5 , embedding은 6
+    c = torch.ones(1, 6) # c문장의 길이는 1 , embedding은 6
+    print(pad_sequence([a, b, c]).size()) # 전체 문장길이는 가장 긴 문장인 b에 맞춰 5가 됨
+    print(pad_sequence([a, b, c]))
+
+    '''
+    torch.Size([5, 3, 6])
+    tensor([[[1., 1., 1., 1., 1., 1.],  -> a문장 1번째 단어 임베딩
+            [1., 1., 1., 1., 1., 1.],  -> b문장 1번째 단어 임베딩
+            [1., 1., 1., 1., 1., 1.]], -> c문장 1번째 단어 임베딩
+    
+            [[1., 1., 1., 1., 1., 1.],  -> a문장 2번째 단어 임베딩
+            [1., 1., 1., 1., 1., 1.],  -> b문장 2번째 단어 임베딩
+            [0., 0., 0., 0., 0., 0.]], -> c문장 2번째 단어 임베딩 # c문장은 1단어로 이루어진 문장이므로 값이 없어서 0을 넣어줌
+    
+            [[1., 1., 1., 1., 1., 1.],  -> a문장 3번째 단어 임베딩
+            [1., 1., 1., 1., 1., 1.],  -> b문장 3번째 단어 임베딩
+            [0., 0., 0., 0., 0., 0.]], -> c문장 3번째 단어 임베딩
+    
+            [[1., 1., 1., 1., 1., 1.],  -> a문장 4번째 단어 임베딩
+            [1., 1., 1., 1., 1., 1.],  -> b문장 4번째 단어 임베딩
+            [0., 0., 0., 0., 0., 0.]], -> c문장 4번째 단어 임베딩
+    
+            [[0., 0., 0., 0., 0., 0.],  -> a문장 5번째 단어 임베딩 # a문장은 4단어로 이루어진 문장이므로 값이 없어서 0을 넣어줌
+            [1., 1., 1., 1., 1., 1.],  -> b문장 5번째 단어 임베딩
+            [0., 0., 0., 0., 0., 0.]]])-> c문장 5번째 단어 임베딩
+    '''
+    ```
+- Data Loader를 할경우 길이가 다르게 나오는 경우 collate_fn을 통해 배치내 문장 길이 맞춰주기
+    ```python
+    def collate_fn(batch):
+        src_batch, tgt_batch = [], []
+        for src_sample, tgt_sample in batch:
+            src_batch.append(src_sample)
+            tgt_batch.append(tgt_sample)
+
+        src_batch = pad_sequence(src_batch, padding_value=0)
+        tgt_batch = pad_sequence(tgt_batch, padding_value=0)
+        return src_batch, tgt_batch
+    ```
+#### References
+- https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pad_sequence.html
