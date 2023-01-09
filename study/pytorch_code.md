@@ -3,6 +3,8 @@
 - [view 와 reshape의 차이 (cf. flatten,contiguous,clone)](#1)
 - [가중치 초기화(weight init)](#2)
 - [Batch Norm과 Layer Norm](#3)
+- [pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기(+ collate_fn))](#4)
+- [ne,repeat](#5)
 
 ---
 
@@ -672,3 +674,91 @@
     ```
 #### References
 - https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pad_sequence.html
+
+---
+
+## #5
+
+### ne,repeat
+- ne
+    - not equal (같으면 False, 다르면 True)
+    - 코드
+        ```python
+        torch.ne(torch.tensor([[1, 2], [3, 4]]), torch.tensor([[1, 1], [4, 4]]))
+        '''
+        tensor([[False,  True],
+                [ True, False]])
+        '''
+        ```
+        ```python
+        a = torch.tensor([[1, 2], [3, 4]])
+        print(a.ne(torch.tensor([[1, 1], [4, 4]])))
+        '''
+        tensor([[False,  True],
+                [ True, False]])
+        '''
+        ```
+
+- repeat
+    - torch.repeat(*sizes)
+    - 특정 텐서의 sizes 차원으로 데이터를 반복함
+        - x의 차원이 repeat하는 차원에 맞지 않을 경우 앞에 1차원을 추가시켜줌
+    - 코드
+        ```python
+        x = torch.tensor([1, 2, 3]) # torch.Size([3]) -> repeat안에 차원에 맞춰 [1,3]이 됨
+        print(x.repeat(4, 2))
+        print(x.repeat(4, 2).size())
+        '''
+        tensor([[ 1,  2,  3,  1,  2,  3],
+               [ 1,  2,  3,  1,  2,  3],
+               [ 1,  2,  3,  1,  2,  3],
+               [ 1,  2,  3,  1,  2,  3]])
+        torch.Size([4, 6])
+        '''
+
+        print(x.repeat(4, 2, 1).size())
+        '''
+        torch.Size([4, 2, 3])
+        '''
+        ```
+        ```python
+        x = torch.tensor([[1, 2, 3],[4,5,6]]) # torch.Size([2, 3])
+        print(x.repeat(4, 2))
+        print(x.repeat(4, 2).size())
+        '''
+        tensor([[1, 2, 3, 1, 2, 3],
+                [4, 5, 6, 4, 5, 6],
+                [1, 2, 3, 1, 2, 3],
+                [4, 5, 6, 4, 5, 6],
+                [1, 2, 3, 1, 2, 3],
+                [4, 5, 6, 4, 5, 6],
+                [1, 2, 3, 1, 2, 3],
+                [4, 5, 6, 4, 5, 6]])
+        torch.Size([8, 6])
+        '''
+        ```
+        ```python
+        x = torch.tensor([[1, 2, 3],[4,5,6]]) # torch.Size([2, 3]) -> torch.Size([1,1,2,3]) repeat 차원에 맞춰 앞에 1차원을 추가 시켜줌
+        print(x.repeat(4, 2, 5,10).size())
+        '''
+        torch.Size([4, 2, 10, 30])
+        '''
+        ```
+        ```python
+        x = torch.tensor([[1, 2, 3],[4,5,6]]) # torch.Size([2, 3])
+        print(x.repeat(1,2).size())
+        '''
+        torch.Size([2, 6])
+        '''
+        ```
+        ```python
+        x = torch.tensor([[[1, 2, 3],[4,5,6]]]) # torch.Size([1, 2, 3])
+        print(x.repeat(2,3).size()) # 차원수가 더 작으면 안됨.
+        '''
+        RuntimeError: Number of dimensions of repeat dims can not be smaller than number of dimensions of tensor
+        '''
+        ```
+
+### References
+- https://pytorch.org/docs/stable/generated/torch.ne.html
+- https://pytorch.org/docs/stable/generated/torch.Tensor.repeat.html
