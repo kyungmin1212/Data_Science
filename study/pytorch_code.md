@@ -295,10 +295,13 @@
             super(Custom_Net, self).__init__()
 
             self.linear_1 = nn.Linear(1024, 1024, bias=False)
-
-            for m in self.modules():
+            
+            # model.modules()-> generator / for 문 사용하면 
+            # Custom_Net((linear_1): Linear(in_features=1024, out_features=1024, bias=False))
+            # Linear(in_features=1024, out_features=1024, bias=False)
+            for m in self.modules(): 
                 if isinstance(m, nn.Linear):
-                    torch.nn.init.normal_(m.weight,mean=0,std=1)
+                    torch.nn.init.normal_(m.weight,mean=0,std=1) # m.weight.data = m.weight
 
     model = Custom_Net()
 
@@ -320,6 +323,66 @@
     tensor(0.9997, grad_fn=<StdBackward0>)
     '''
     ```
+
+- 다른 대표적으로 사용하는 초기화 방법(이것만 적용해도 어느정도 커버 가능)
+    ```python
+    def initialize_weights(m):
+        if hasattr(m, 'weight') and m.weight.dim() > 1: # m.weight.dim()는 shape의 차원수 즉 torch.size([1024,1024])-> 2,torch.Size([20,100,20,20])-> 4
+            nn.init.kaiming_uniform_(m.weight.data)
+        if hasattr(m,'bias') and m.bias is not None: # bias가 False일 경우는 None으로 나옴
+            nn.init.constant_(m.bias, 0)
+
+    model = Transformer().to(device)
+
+    # model.apply를 하게되면 함수의 인자로 module이 들어가게됨
+    model.apply(initialize_weights)
+    ```
+    ```python
+    class Custom_Net(nn.Module):
+        def __init__(self):
+            super(Custom_Net, self).__init__()
+
+            self.linear_1 = nn.Linear(1024, 1024, bias=False)
+            self.cnn = nn.Conv2d(100,20,20)
+            
+            self.embedding = nn.Embedding(100,20)
+    model = Custom_Net()
+
+    def initialize_weights(m):
+        if hasattr(m, 'weight') and m.weight.dim() > 1: # m.weight.dim()는 shape의 차원수 즉 torch.size([1024,1024])-> 2,torch.Size([20,100,20,20])-> 4
+            nn.init.kaiming_uniform_(m.weight.data)
+        if hasattr(m,'bias') and m.bias is not None: # bias가 False일 경우는 None으로 나옴
+            nn.init.constant_(m.bias, 0)
+
+    model.apply(initialize_weights)
+    ```
+
+- 정리본
+    ```python
+    def initialize_weights(self):
+    for m in self.modules():
+        # convolution kernel의 weight를 He initialization을 적용한다.
+        if isinstance(m, nn.Conv2d):
+            nn.init.kaiming_uniform_(m.weight)
+            
+            # bias는 상수 0으로 초기화 한다.
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        
+        elif isinstance(m, nn.BatchNorm2d):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+    
+        elif isinstance(m, nn.Linear):
+            nn.init.kaiming_uniform_(m.weight)
+            nn.init.constant_(m.bias, 0)
+    ```
+    - layernorm : weight = 1 bias = 0으로 초기화 되어있음 (https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html)
+    - Embedding : 평균0, 표준편차 1로 초기화 되어져있음 (https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html)
+    - BatchNorm2d는 초기값이 torch에 정의되어져 있지 않음 (https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html)
+    - Conv2d : He 초기화 되어져 있음
+    - Linear : He 초기화 되어져 있음
+    - embedding과 
 #### References
 - https://freshrimpsushi.github.io/posts/weights-initialization-in-pytorch/
 - https://gaussian37.github.io/dl-pytorch-snippets/#weight-%EC%B4%88%EA%B8%B0%ED%99%94-%EB%B0%A9%EB%B2%95-1
