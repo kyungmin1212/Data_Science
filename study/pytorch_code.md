@@ -2,6 +2,7 @@
 
 - [view 와 reshape의 차이 (cf. flatten,contiguous,clone)](#1)
 - [가중치 초기화(weight init)](#2)
+- [Batch Norm과 Layer Norm](#3)
 
 ---
 
@@ -325,3 +326,141 @@
 - https://supermemi.tistory.com/121
 - https://excelsior-cjh.tistory.com/177
 - https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.kaiming_uniform_
+
+---
+
+## #3
+
+### Batch Norm과 Layer Norm
+- 그림을 통한 이해    
+    ![](./img/batchnorm_layernorm.jpg)    
+- Batch Norm과 Layer Norm의 간단한 설명
+    - Batch Norm 
+        - 배치별로 평균이 0 표준편차를 1로 정규화. 
+        - (Batch,Channel,H,W)일경우 Batch,H,W의 평균이 0 표준편차를 1로 만드는 것. 
+        - 감마와 베타의 shape은 (Channel)와 같음 (nn.BatchNorm1d 나 2d의 코드를 보게되면 입력인자가 channel만 들어감 즉 감마와 베타를 channel shape을 가지는 벡터만 만드는것).
+        - 즉 채널별로 (batch,h,w)의 평균이 0 분산이 1로 만들었는데 이것을 얼마만큼씩 scale,bias를 적용해줄지를 감마와 베타가 정해주는것 (이미지의 경우 채널별로 이미지에 대해 배치사이즈로 묶어준 것들의 평균과 분산을 구해준후 적절하게 채널별로 감마와 베타로 scale, bias 해주는 것)    
+        ![](./img/batchnorm_layernorm2.jpg)    
+    - Layer Norm 
+        - Layer별로 평균이 0 표준편차를 1로 정규화.
+        - (Batch,Channel,H,W)일경우 Channle,H,W의 평균이 0 표준편차를 1로 만드는 것. 
+        - 감마와 베타의 shape은 (Channle,H,W)와 같음 (nn.LayerNorm코드를 보면 입력인자가 여러개의 차원이 들어감. 즉 감마와 벡타도 그 shape에 맞게 생성됨)
+        - 즉, 이미지에 대한 경우는 모든 이미지에 대해 각각 이미지를 평균0 표준편차1로 어느정도 안정화된 값으로 만든다음에 모든 이미지의 같은 위치의 모든채널안에서의 픽셀마다(즉, (0,0,0) 이라면 0번째 채널의 0,0의 픽셀 끼리의 이미지의 관계,(1,10,30) 이라면 1번재 채널의 10,30 픽셀에서 모든 이미지의 관계) 감마와 베타를 학습해 그 위치에서는 어떤 scale, bias가 좋은지를 적용시켜줌(이럴 경우 각각의 픽셀위치가 어떤 역할을 하는지 어느정도 의미를 파악가능. 사실 이미지에서는 픽셀위치가 그렇게 유의미한 경우가 없기 때문에 이미지에서는 Batch Norm을 많이 사용)    
+            ![](./img/batchnorm_layernorm3.jpg)    
+        - NLP에 대한 경우도 마찬가지임 NLP는 보통 (Batch,Length,embedding)인 경우가 많은데 nn.LayerNorm에 embedding 1차원만 들어가는 경우가 대부분임. 이럴 경우는 전체 Length에 대해서 각각의 단어 임베딩차원 값들을 평균 0 표준편차 1로 만들어준다음에 각각의 임베딩 차원에서(즉, embedding이 5차원일 경우 전체 length 문장에서 각 단어마다 1번째 차원끼리의 상관관계, 2번재 차원끼리의 상관관계 , ... 5번재 차원끼리의 상관관계를 감마 베타가 학습하는것) 전체 단어에 대해 각각의 차원의 상관관계를 감마 베타가 구해줌(이럴 경우 각각의 임베딩차원이 어떤 역할을 하는지 어느정도 더 정확하게 설정가능해짐)    
+            ![](./img/batchnorm_layernorm4.jpg)     
+    - Batch Norm 은 채널에 대한 감마와 베타의 벡터에 대해 파라미터를 학습하지만 , Layer Norm은 감마와 베타의 affine transform를 학습하는 것
+
+- Batch Norm
+    - nn.BatchNorm1d 와 nn.BatchNorm2d
+        - nn.BatchNorm1d
+            - input과 output
+                - input : (N,C) or (N,C,L) (N : batch size, C : channels, L : sequence length)
+                - output : (N,C) or (N,C,L)
+            - 코드
+                ```python
+                # With Learnable Parameters
+                m = nn.BatchNorm1d(100)
+
+                # Without Learnable Parameters
+                m = nn.BatchNorm1d(100, affine=False)
+                input = torch.randn(20, 100)
+                output = m(input)
+                print(output.shape)
+                '''
+                torch.Size([20, 100])
+                '''
+                ```
+        - nn.BatchNorm2d
+            - input과 output
+                - input : (N,C,H,W)
+                - output : (N,C,H,W)
+            - 코드
+                ```python
+                # With Learnable Parameters
+                m = nn.BatchNorm2d(100)
+
+                # Without Learnable Parameters
+                m = nn.BatchNorm2d(100, affine=False)
+                input = torch.randn(20, 100, 35, 45)
+                output = m(input)
+                print(output.shape)
+                '''
+                torch.Size([20, 100, 35, 45])
+                '''
+                ```
+- Layer Norm
+    - 대표적으로 NLP transformer에 존재
+    - 코드를 통한 설명(NLP)
+        - nn.LayerNorm 사용
+            ```python
+            # NLP Example
+            batch, sentence_length, embedding_dim = 20, 50, 100
+            embedding = torch.randn(batch, sentence_length, embedding_dim)
+            layer_norm = nn.LayerNorm(embedding_dim)
+
+            # Activate module
+            output_1 = layer_norm(embedding)
+            print(output_1.shape)
+            '''
+            torch.Size([20, 50, 100])
+            '''
+            ```
+        - 직접 구현
+            ```python
+            class LayerNorm(nn.Module):
+                def __init__(self, d_model, eps=1e-12):
+                    super(LayerNorm, self).__init__()
+                    self.gamma = nn.Parameter(torch.ones(d_model))
+                    self.beta = nn.Parameter(torch.zeros(d_model))
+                    self.eps = eps
+
+                def forward(self, x):
+                    mean = x.mean(-1, keepdim=True)
+                    var = x.var(-1, unbiased=False, keepdim=True)
+                    # '-1' means last dimension. 
+
+                    out = (x - mean) / torch.sqrt(var + self.eps)
+                    out = self.gamma * out + self.beta
+                    return out
+
+            batch, sentence_length, embedding_dim = 20, 50, 100
+            embedding = torch.randn(batch, sentence_length, embedding_dim)
+            layer_norm = LayerNorm(embedding_dim)
+            # Activate module
+            output_2 = layer_norm(embedding)
+            print(output_2.shape)
+            '''
+            torch.Size([20, 50, 100])
+            '''
+            ```
+        - 감마와 베타는 nn.LayerNorm에서 elementwise_affine이 True일 경우 학습되는 요소임(elementwise_affine의 default는 True)
+        - 직접 구현한 코드를 보게 되면 nn.Parameter를 통해 선언해서 감마와 베타를 학습가능한 상수를 선언해줌
+    - 코드를 통한 설명(Image)
+        - nn.LayerNorm
+            ```python
+            # Image Example
+            N, C, H, W = 20, 5, 10, 10
+            input = torch.randn(N, C, H, W)
+            # Normalize over the last three dimensions (i.e. the channel and spatial dimensions)
+            # as shown in the image below
+            layer_norm = nn.LayerNorm([C, H, W])
+            output = layer_norm(input)
+            print(output.shape)
+            '''
+            torch.Size([20, 5, 10, 10])
+            '''
+            ```
+    - nn.LayerNorm 설명
+        - 예를 들어, nn.LayerNorm에 들어가는 shape이 (3,5)(2차원 shape)일 경우, 평균과 표준편차는 input의 마지막 2차원으로 계산이 됨(예를 들면 input.mean((-2,-1))). 여기서 감마와 베타는 nn.LyaerNorm에 들어가는 shape과 동일한 shape을 가짐(elementwise_affine이 True일 경우 학습되는 요소임(elementwise_affine의 default는 True))
+        - 그림을 통한 이해    
+            ![](./img/batchnorm_layernorm1.jpg)    
+
+
+#### References
+- https://gaussian37.github.io/dl-concept-batchnorm/
+- https://yonghyuc.wordpress.com/2020/03/04/batch-norm-vs-layer-norm/
+- https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html
+- https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html
+- https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html
+- https://github.com/hyunwoongko/transformer
