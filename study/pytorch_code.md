@@ -538,7 +538,7 @@
 
 ## #4
 
-### pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기)
+### pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기(+ collate_fn))
 - 예시 코드
     ```python
     from torch.nn.utils.rnn import pad_sequence
@@ -595,6 +595,80 @@
         src_batch = pad_sequence(src_batch, padding_value=0)
         tgt_batch = pad_sequence(tgt_batch, padding_value=0)
         return src_batch, tgt_batch
+    ```
+- 실전 예시
+    ```python
+    pad_id = 0
+    vocab_size = 100
+
+    src_data = [
+    [62, 13, 47, 39, 78, 33, 56, 13],
+    [60, 96, 51, 32, 90],
+    [35, 45, 48, 65, 91, 99, 92, 10, 3, 21],
+    [66, 88, 98, 47],
+    [77, 65, 51, 77, 19, 15, 35, 19, 23]
+    ]
+
+    trg_data = [
+    [33, 11, 49, 10],
+    [88, 34, 5, 29, 99, 45, 11, 25],
+    [67, 25, 15, 90, 54, 4, 92, 10, 46, 20, 88 ,19],
+    [16, 58, 91, 47, 12, 5, 8],
+    [71, 63, 62, 7, 9, 11, 55, 91, 32, 48]
+    ]
+
+    class CustomDataset(torch.utils.data.Dataset):
+        def __init__(self,src_data,trg_data):
+            super().__init__()
+            self.src_data = src_data
+            self.trg_data = trg_data
+
+        def __getitem__(self,index):
+            return torch.LongTensor(self.src_data[index]),torch.LongTensor(self.trg_data[index])
+
+        def __len__(self):
+            return len(self.src_data)
+    
+    def collate_fn(batch):
+        src_batch, tgt_batch = [], []
+        for src_sample, tgt_sample in batch:
+            src_batch.append(src_sample)
+            tgt_batch.append(tgt_sample)
+
+        src_batch = pad_sequence(src_batch, padding_value=0)
+        tgt_batch = pad_sequence(tgt_batch, padding_value=0)
+        return src_batch, tgt_batch
+
+    dataset = CustomDataset(src_data,trg_data)
+    train_loader = torch.utils.data.DataLoader(dataset,batch_size=2,shuffle=True,collate_fn=collate_fn)
+    src,trg = next(iter(train_loader))
+    print(src.shape) # L,B
+    print(trg.shape) # L,B
+    print(src)
+    print(trg)
+    '''
+    torch.Size([9, 2])
+    torch.Size([10, 2])
+    tensor([[66, 77],
+            [88, 65],
+            [98, 51],
+            [47, 77],
+            [ 0, 19],
+            [ 0, 15],
+            [ 0, 35],
+            [ 0, 19],
+            [ 0, 23]])
+    tensor([[16, 71],
+            [58, 63],
+            [91, 62],
+            [47,  7],
+            [12,  9],
+            [ 5, 11],
+            [ 8, 55],
+            [ 0, 91],
+            [ 0, 32],
+            [ 0, 48]])
+    '''
     ```
 #### References
 - https://pytorch.org/docs/stable/generated/torch.nn.utils.rnn.pad_sequence.html
