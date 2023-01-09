@@ -346,11 +346,11 @@
             self.cnn = nn.Conv2d(100,20,20)
             
             self.embedding = nn.Embedding(100,20)
-    model = Custom_Net()
+    model = Custom_Net().to(device)
 
     def initialize_weights(m):
         if hasattr(m, 'weight') and m.weight.dim() > 1: # m.weight.dim()는 shape의 차원수 즉 torch.size([1024,1024])-> 2,torch.Size([20,100,20,20])-> 4
-            nn.init.kaiming_uniform_(m.weight.data)
+            nn.init.kaiming_uniform_(m.weight.data,nonlinearity='leaky_relu')
         if hasattr(m,'bias') and m.bias is not None: # bias가 False일 경우는 None으로 나옴
             nn.init.constant_(m.bias, 0)
 
@@ -359,23 +359,29 @@
 
 - 정리본
     ```python
-    def initialize_weights(self):
-    for m in self.modules():
+    def initialize_weights(m):
         # convolution kernel의 weight를 He initialization을 적용한다.
         if isinstance(m, nn.Conv2d):
-            nn.init.kaiming_uniform_(m.weight)
+            nn.init.kaiming_uniform_(m.weight.data,nonlinearity='leaky_relu')
+
+            # bias는 상수 0으로 초기화 한다.
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+        elif isinstance(m, nn.BatchNorm2d):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+
+        elif isinstance(m, nn.Linear):
+            nn.init.kaiming_uniform_(m.weight.data,nonlinearity='leaky_relu')
             
             # bias는 상수 0으로 초기화 한다.
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
-        
-        elif isinstance(m, nn.BatchNorm2d):
-            nn.init.constant_(m.weight, 1)
-            nn.init.constant_(m.bias, 0)
-    
-        elif isinstance(m, nn.Linear):
-            nn.init.kaiming_uniform_(m.weight)
-            nn.init.constant_(m.bias, 0)
+
+            
+    model = Custom_Net().to(device)
+    model.apply(initialize_weights)
     ```
     - layernorm : weight = 1 bias = 0으로 초기화 되어있음 (https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html)
     - Embedding : 평균0, 표준편차 1로 초기화 되어져있음 (https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html)
