@@ -336,13 +336,13 @@
     ![](./img/batchnorm_layernorm.jpg)    
 - Batch Norm과 Layer Norm의 간단한 설명
     - Batch Norm 
-        - 배치별로 평균이 0 표준편차를 1로 정규화. 
+        - 채널별로 배치를 묶어 평균이 0 표준편차를 1로 정규화. 
         - (Batch,Channel,H,W)일경우 Batch,H,W의 평균이 0 표준편차를 1로 만드는 것. 
         - 감마와 베타의 shape은 (Channel)와 같음 (nn.BatchNorm1d 나 2d의 코드를 보게되면 입력인자가 channel만 들어감 즉 감마와 베타를 channel shape을 가지는 벡터만 만드는것).
         - 즉 채널별로 (batch,h,w)의 평균이 0 분산이 1로 만들었는데 이것을 얼마만큼씩 scale,bias를 적용해줄지를 감마와 베타가 정해주는것 (이미지의 경우 채널별로 이미지에 대해 배치사이즈로 묶어준 것들의 평균과 분산을 구해준후 적절하게 채널별로 감마와 베타로 scale, bias 해주는 것)    
         ![](./img/batchnorm_layernorm2.jpg)    
     - Layer Norm 
-        - Layer별로 평균이 0 표준편차를 1로 정규화.
+        - 배치별로 layer를 묶어 평균이 0 표준편차를 1로 정규화.
         - (Batch,Channel,H,W)일경우 Channle,H,W의 평균이 0 표준편차를 1로 만드는 것. 
         - 감마와 베타의 shape은 (Channle,H,W)와 같음 (nn.LayerNorm코드를 보면 입력인자가 여러개의 차원이 들어감. 즉 감마와 벡타도 그 shape에 맞게 생성됨)
         - 즉, 이미지에 대한 경우는 모든 이미지에 대해 각각 이미지를 평균0 표준편차1로 어느정도 안정화된 값으로 만든다음에 모든 이미지의 같은 위치의 모든채널안에서의 픽셀마다(즉, (0,0,0) 이라면 0번째 채널의 0,0의 픽셀 끼리의 이미지의 관계,(1,10,30) 이라면 1번재 채널의 10,30 픽셀에서 모든 이미지의 관계) 감마와 베타를 학습해 그 위치에서는 어떤 scale, bias가 좋은지를 적용시켜줌(이럴 경우 각각의 픽셀위치가 어떤 역할을 하는지 어느정도 의미를 파악가능. 사실 이미지에서는 픽셀위치가 그렇게 유의미한 경우가 없기 때문에 이미지에서는 Batch Norm을 많이 사용)    
@@ -452,7 +452,7 @@
             '''
             ```
     - nn.LayerNorm 설명
-        - 예를 들어, nn.LayerNorm에 들어가는 shape이 (3,5)(2차원 shape)일 경우, 평균과 표준편차는 input의 마지막 2차원으로 계산이 됨(예를 들면 input.mean((-2,-1))). 여기서 감마와 베타는 nn.LyaerNorm에 들어가는 shape과 동일한 shape을 가짐(elementwise_affine이 True일 경우 학습되는 요소임(elementwise_affine의 default는 True))
+        - 예를 들어, nn.LayerNorm에 들어가는 shape이 (3,5)(2차원 shape)일 경우, 평균과 표준편차는 input의 마지막 2차원으로 계산이 됨(예를 들면 input.mean((-2,-1))). 여기서 감마와 베타는 nn.LayerNorm에 들어가는 shape과 동일한 shape을 가짐(elementwise_affine이 True일 경우 학습되는 요소임(elementwise_affine의 default는 True))
         - 그림을 통한 이해    
             ![](./img/batchnorm_layernorm1.jpg)    
 
