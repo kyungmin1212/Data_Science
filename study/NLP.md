@@ -1496,9 +1496,52 @@
 - 인코딩할때 RNN계열 모델보다 시간은 빠르지만 메모리는 많이 필요하게 됨(RNN은 다음 타임스텝으로 가기위해서는 전 타임 스텝의 결과를 알아야하지만 Transformer는 한번에 학습 가능. 하지만 그만큼 한번에 많은 메모리를 필요하게 됨)
 - 모델 구조 이미지    
     ![](./img/Transformer.jpg)    
+
+- Embedding
+    - 코드
+        ```python
+        class TokenEmbedding(nn.Embedding):
+            """
+            Token Embedding using torch.nn
+            they will dense representation of word using weighted matrix
+            """
+
+            def __init__(self, vocab_size, d_model):
+                """
+                class for token embedding that included positional information
+                :param vocab_size: size of vocabulary
+                :param d_model: dimensions of model
+                """
+                super(TokenEmbedding, self).__init__(vocab_size, d_model)
+        ```
+        ```python
+        class TransformerEmbedding(nn.Module):
+            """
+            token embedding + positional encoding (sinusoid)
+            positional encoding can give positional information to network
+            """
+
+            def __init__(self, vocab_size, d_model, max_len, drop_prob, device):
+                """
+                class for word embedding that included positional information
+                :param vocab_size: size of vocabulary
+                :param d_model: dimensions of model
+                """
+                super(TransformerEmbedding, self).__init__()
+                self.tok_emb = TokenEmbedding(vocab_size, d_model)
+                self.pos_emb = PostionalEncoding(d_model, max_len, device)
+                self.drop_out = nn.Dropout(p=drop_prob)
+
+            def forward(self, x):
+                tok_emb = self.tok_emb(x)
+                pos_emb = self.pos_emb(x)
+                return self.drop_out(tok_emb + pos_emb)
+        ```
+
 - Positional Encoder    
     ![](./img/Transformer1.jpg)    
     ![](./img/Transformer2.jpg)    
+    (위 그림에서 50번째 타임스텝이란 우리가 쉬운 예시로 50번째 단어를 구분해주기 위해 최대 길이가 100단어라고 하면 100단어 중 50번째 값에다가 1000을 더해주는 방식임 ([0,0,0,0,...,1000,0,0,0,0,0]). 하지만 이 방식은 너무 단순하고 값에 따라 변화가 많음 따라서 0과 1사이 값을 가지는데 다양한 값을 표현해줄수 있는 방식으로 PositionEncoding 값을 더해주는것 (전체 데이터의 최장 길이에 대해서 encoding값을 구현해두고 배치내에서 최장길이 문장만큼을 가져다가 사용하면됨 self.encoding[:seq_len,:]))
     - 코드
         ```python
         class PositionalEncoding(nn.Module):
@@ -1556,39 +1599,38 @@
         - 코드
             ```python
             class ScaleDotProductAttention(nn.Module):
-            """
-            compute scale dot product attention
+                """
+                compute scale dot product attention
 
-            Query : given sentence that we focused on (decoder)
-            Key : every sentence to check relationship with Query(encoder)
-            Value : every sentence same with Key (encoder)
-            """
+                Query : given sentence that we focused on (decoder)
+                Key : every sentence to check relationship with Query(encoder)
+                Value : every sentence same with Key (encoder)
+                """
 
-            def __init__(self):
-                super(ScaleDotProductAttention, self).__init__()
-                self.softmax = nn.Softmax(dim=-1)
+                def __init__(self):
+                    super(ScaleDotProductAttention, self).__init__()
+                    self.softmax = nn.Softmax(dim=-1)
 
-            def forward(self, q, k, v, mask=None, inf_value=1e12):
-                # input is 4 dimension tensor
-                # [batch_size, head, length, d_tensor]
-                batch_size, head, length, d_tensor = k.size()
+                def forward(self, q, k, v, mask=None, inf_value=1e12): # [batch_size, head, length, d_tensor]  # d_tensor = d_model // self.n_head # mask : [batch_size , 1 , len_src , len_src]
+                    # input is 4 dimension tensor
+                    # [batch_size, head, length, d_tensor]
+                    batch_size, head, length, d_tensor = k.size()
 
-                # 1. dot product Query with Key^T to compute similarity
-                k_t = k.transpose(2, 3)  # transpose # (B,n_head,d,L)
-                score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product #(B,n_head,L,L)
+                    # 1. dot product Query with Key^T to compute similarity
+                    k_t = k.transpose(2, 3)  # transpose # (B,n_head,d,L)
+                    score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product #(B,n_head,L,L)
 
-                # 2. apply masking (opt)
-                if mask is not None: # (B,L,L)
-                    mask = mask.unsqueeze(1)  # (B, 1, L, L)
-                    score = score.masked_fill(mask == False, -*inf_value) # softmax 적용시 e^(-inf) = 0이 되므로 0대신 -inf를 넣어줌 0을 넣으면 e^0 = 1 로 1이 나오게됨
+                    # 2. apply masking (opt) # encoding 시에도 마스킹 적용해줘야함(배치내의 길이가 다른 문장들에서 길이를 맞춰주기 위한 0에 대한 임베딩 값을 연산에 사용할 필요가 없기 때문) # decoding 에서는 먼저 masked multi-head attention 부분에서는 먼저나온단어로 뒷단어를 예측해야하기때문에 대각부분위 쪽을 모두 0으로 만든 마스크 사용
+                    if mask is not None: # (B, 1, L, L)
+                        score = score.masked_fill(mask == False, -*inf_value) # softmax 적용시 e^(-inf) = 0이 되므로 0대신 -inf를 넣어줌 0을 넣으면 e^0 = 1 로 1이 나오게됨
 
-                # 3. pass them softmax to make [0, 1] range
-                score = self.softmax(score)
+                    # 3. pass them softmax to make [0, 1] range
+                    score = self.softmax(score) # (B,n_head,L,L)
 
-                # 4. multiply with Value
-                v = score @ v # @ = matmul , mul은 원소별 곱셈 , matmul은 내적
+                    # 4. multiply with Value
+                    v = score @ v # @ = matmul , mul은 원소별 곱셈 , matmul은 내적 # (B,n_head,L,d_tensor)
 
-                return v, score
+                    return v, score  # v(임베딩된 벡터) : (B,n_head,L,d_tensor) , score : (B,n_head,L,L)
             ```
             - 참고: masked_fill
                 - broadcast되어서 적용됨
@@ -1628,21 +1670,23 @@
                     self.w_v = nn.Linear(d_model, d_model)
                     self.w_concat = nn.Linear(d_model, d_model)
 
-                def forward(self, q, k, v, mask=None):
+                def forward(self, q, k, v, mask=None): # q,k,v : [Batch,Length,d_model(vocab embedding)] , src_mask : [batch_size , 1 , len_src , len_src]
                     # 1. dot product with weight matrices
                     q, k, v = self.w_q(q), self.w_k(k), self.w_v(v) # [batch_size, length, d_model]
 
                     # 2. split tensor by number of heads
-                    q, k, v = self.split(q), self.split(k), self.split(v) # [batch_size, head, length, d_tensor] d_tensor = d_model // self.n_head
+                    q, k, v = self.split(q), self.split(k), self.split(v) # [batch_size, head, length, d_tensor]  # d_tensor = d_model // self.n_head # mask : [batch_size , 1 , len_src , len_src]
 
                     # 3. do scale dot product to compute similarity
-                    out, attention = self.attention(q, k, v, mask=mask)
-                    
-                    # 4. concat and pass to linear layer
-                    out = self.concat(out)
-                    out = self.w_concat(out)
+                    out, attention = self.attention(q, k, v, mask=mask) 
+                    # v(임베딩된 벡터) : (B,n_head,L,d_tensor) , score : (B,n_head,L,L) 
+                    # v-> out , score -> attention
 
-                    return out
+                    # 4. concat and pass to linear layer
+                    out = self.concat(out) # (batch_size, length, d_model)
+                    out = self.w_concat(out) # (batch_size, length, d_model)
+
+                    return out # (batch_size, length, d_model)
 
                 def split(self, tensor):
                     """
@@ -1675,6 +1719,7 @@
 - Masked Self-Attention
     - Decoder 부분에서 주의해야할점은 아래와 같은 예시에서 `SOS 나는 집에` 의 입력 벡터에 따라 쿼리와 키가 존재할때 추론을 할때는 쿼리 단어까지만 값을 알고 있기 때문에 쿼리 뒤 단어는 키로써 연산을 할수 없음. 따라서 대각선 기준 위쪽 부분을 모두 0으로 masking 해줘야함    
         ![](./img/Transformer11.jpg)    
+    - scaledotproduct 부분에 mask가 들어가게 됨
     - 코드
         - 예시 데이터
             ```python
@@ -1826,6 +1871,313 @@
             torch.Size([5, 10, 10]) # (B,L,L)
             '''
             ```
+- Add & Norm (Layer Norm)
+    - Add
+        - Residual connection 적용
+        - Multi-Head Attention의 결과와 input vector들을 더해줌
+    - Norm(Layer Norm)
+        - Add한 결과에 Layer Norm 적용
+        - Batch Norm 과 Layer Norm
+            - 참고 : https://github.com/kyungmin1212/Data_Science/blob/main/study/pytorch_code.md#3
+        - 코드
+            ```python
+            class LayerNorm(nn.Module):
+                def __init__(self, d_model, eps=1e-12):
+                    super(LayerNorm, self).__init__()
+                    self.gamma = nn.Parameter(torch.ones(d_model))
+                    self.beta = nn.Parameter(torch.zeros(d_model))
+                    self.eps = eps
+
+                def forward(self, x):
+                    mean = x.mean(-1, keepdim=True)
+                    var = x.var(-1, unbiased=False, keepdim=True)
+                    # '-1' means last dimension. 
+
+                    out = (x - mean) / torch.sqrt(var + self.eps)
+                    out = self.gamma * out + self.beta
+                    return out
+            ```
+- Fead Forward
+    - 코드
+        ```python
+        class PositionwiseFeedForward(nn.Module):
+
+            def __init__(self, d_model, hidden, drop_prob=0.1):
+                super(PositionwiseFeedForward, self).__init__()
+                self.linear1 = nn.Linear(d_model, hidden)
+                self.linear2 = nn.Linear(hidden, d_model)
+                self.relu = nn.ReLU()
+                self.dropout = nn.Dropout(p=drop_prob)
+
+            def forward(self, x):
+                x = self.linear1(x)
+                x = self.relu(x)
+                x = self.dropout(x)
+                x = self.linear2(x)
+                return x
+        ```
+
+- Encoder & Decdoer Structure
+    - EncoderLayer
+        ```python
+        class EncoderLayer(nn.Module):
+
+            def __init__(self, d_model, ffn_hidden, n_head, drop_prob):
+                super(EncoderLayer, self).__init__()
+                self.attention = MultiHeadAttention(d_model=d_model, n_head=n_head)
+                self.norm1 = LayerNorm(d_model=d_model)
+                self.dropout1 = nn.Dropout(p=drop_prob)
+
+                self.ffn = PositionwiseFeedForward(d_model=d_model, hidden=ffn_hidden, drop_prob=drop_prob)
+                self.norm2 = LayerNorm(d_model=d_model)
+                self.dropout2 = nn.Dropout(p=drop_prob)
+
+            def forward(self, x, src_mask): # x : [Batch,Length,d_model(vocab embedding)] , src_mask : [batch_size , 1 , len_src , len_src]
+                # 1. compute self attention
+                _x = x
+                x = self.attention(q=x, k=x, v=x, mask=src_mask) # (batch_size, length, d_model)
+                
+                # 2. add and norm
+                x = self.dropout1(x)
+                x = self.norm1(x + _x)
+                
+                # 3. positionwise feed forward network
+                _x = x
+                x = self.ffn(x)
+            
+                # 4. add and norm
+                x = self.dropout2(x)
+                x = self.norm2(x + _x)
+                return x
+        ```
+    - Encoder
+        ```python
+        class Encoder(nn.Module):
+
+            def __init__(self, enc_voc_size, max_len, d_model, ffn_hidden, n_head, n_layers, drop_prob, device):
+                super().__init__()
+                self.emb = TransformerEmbedding(d_model=d_model,
+                                                max_len=max_len,
+                                                vocab_size=enc_voc_size,
+                                                drop_prob=drop_prob,
+                                                device=device)
+
+                self.layers = nn.ModuleList([EncoderLayer(d_model=d_model,
+                                                        ffn_hidden=ffn_hidden,
+                                                        n_head=n_head,
+                                                        drop_prob=drop_prob)
+                                            for _ in range(n_layers)])
+
+            def forward(self, x, src_mask): #  x : [Batch,Length] , src_mask : [batch_size , 1 , len_src , len_src]
+                x = self.emb(x) # [Batch,Length,d_model(vocab embedding)]
+
+                for layer in self.layers:
+                    x = layer(x, src_mask)
+
+                return x # (batch_size, length, d_model)
+                
+        ```
+
+    - DecoderLayer
+        ```python
+        class DecoderLayer(nn.Module):
+
+            def __init__(self, d_model, ffn_hidden, n_head, drop_prob):
+                super(DecoderLayer, self).__init__()
+                self.self_attention = MultiHeadAttention(d_model=d_model, n_head=n_head)
+                self.norm1 = LayerNorm(d_model=d_model)
+                self.dropout1 = nn.Dropout(p=drop_prob)
+
+                self.enc_dec_attention = MultiHeadAttention(d_model=d_model, n_head=n_head)
+                self.norm2 = LayerNorm(d_model=d_model)
+                self.dropout2 = nn.Dropout(p=drop_prob)
+
+                self.ffn = PositionwiseFeedForward(d_model=d_model, hidden=ffn_hidden, drop_prob=drop_prob)
+                self.norm3 = LayerNorm(d_model=d_model)
+                self.dropout3 = nn.Dropout(p=drop_prob)
+
+            def forward(self, dec, enc, trg_mask, src_mask): # trg(dec) -> [Batch,Length,d_model(vocab embedding)], enc_src(enc) -> (batch_size, length, d_model) , trg_mask -> [batch_size , 1 , len_trg , len_trg] , src_trg_mask -> [batch_size , 1 , len_trg , len_src]
+                # 1. compute self attention
+                _x = dec
+                x = self.self_attention(q=dec, k=dec, v=dec, mask=trg_mask)  # (batch_size, length, d_model) # 이때 마스크는 실제 값이 들어있는 trg x trg 에서 대각선 위쪽을 0 으로 만든것
+                
+                # 2. add and norm
+                x = self.dropout1(x)
+                x = self.norm1(x + _x) # (batch_size, length, d_model)
+
+                if enc is not None:
+                    # 3. compute encoder - decoder attention
+                    _x = x
+                    x = self.enc_dec_attention(q=x, k=enc, v=enc, mask=src_mask) # 쿼리만 디코더 입력 단어에 대해서 넣어줌. mask는 src와 trg모두 값이 채워져 있는거만 값을 반환하게 만듦
+                    
+                    # 4. add and norm
+                    x = self.dropout2(x)
+                    x = self.norm2(x + _x)
+
+                # 5. positionwise feed forward network
+                _x = x
+                x = self.ffn(x)
+                
+                # 6. add and norm
+                x = self.dropout3(x)
+                x = self.norm3(x + _x)
+                return x
+        ```
+    - Decoder
+        ```python
+        class Decoder(nn.Module):
+            def __init__(self, dec_voc_size, max_len, d_model, ffn_hidden, n_head, n_layers, drop_prob, device):
+                super().__init__()
+                self.emb = TransformerEmbedding(d_model=d_model,
+                                                drop_prob=drop_prob,
+                                                max_len=max_len,
+                                                vocab_size=dec_voc_size,
+                                                device=device)
+
+                self.layers = nn.ModuleList([DecoderLayer(d_model=d_model,
+                                                        ffn_hidden=ffn_hidden,
+                                                        n_head=n_head,
+                                                        drop_prob=drop_prob)
+                                            for _ in range(n_layers)])
+
+                self.linear = nn.Linear(d_model, dec_voc_size)
+
+            def forward(self, trg, src, trg_mask, src_mask):  # trg -> (batch,length), enc_src -> (batch_size, length, d_model) , trg_mask -> [batch_size , 1 , len_trg , len_trg] , src_trg_mask -> [batch_size , 1 , len_trg , len_src]
+                trg = self.emb(trg) # [Batch,Length,d_model(vocab embedding)]
+
+                for layer in self.layers:
+                    trg = layer(trg, src, trg_mask, src_mask)
+
+                # pass to LM head
+                output = self.linear(trg)
+                return output
+        ```
+
+- 최종 모델 선언
+    ```python
+    class Transformer(nn.Module):
+
+        def __init__(self, src_pad_idx, trg_pad_idx, trg_sos_idx, enc_voc_size, dec_voc_size, d_model, n_head, max_len,
+                    ffn_hidden, n_layers, drop_prob, device):
+            super().__init__()
+            self.src_pad_idx = src_pad_idx # 길이 맞춰주기 위한 패딩 보통 0 사용
+            self.trg_pad_idx = trg_pad_idx # 길이 맞춰주기 위한 패딩 보통 0 사용
+            self.trg_sos_idx = trg_sos_idx
+            self.device = device
+            self.encoder = Encoder(d_model=d_model,
+                                n_head=n_head,
+                                max_len=max_len,
+                                ffn_hidden=ffn_hidden,
+                                enc_voc_size=enc_voc_size,
+                                drop_prob=drop_prob,
+                                n_layers=n_layers,
+                                device=device)
+
+            self.decoder = Decoder(d_model=d_model,
+                                n_head=n_head,
+                                max_len=max_len,
+                                ffn_hidden=ffn_hidden,
+                                dec_voc_size=dec_voc_size,
+                                drop_prob=drop_prob,
+                                n_layers=n_layers,
+                                device=device)
+
+        def forward(self, src, trg): # src,trg -> [Batch,Length]
+            src_mask = self.make_pad_mask(src, src) # [batch_size , 1 , len_src , len_src] # 실제 값이 들어있는 부분 True ,0패딩된 부분 False 마스크 생성
+
+            src_trg_mask = self.make_pad_mask(trg, src) # [batch_size , 1 , len_trg , len_src] # src에도 값이 들어있고 trg에도 값이 들어있는 부분 True, 둘중에 하나만 있거나 둘다 없는경우는 False 마스크 생성
+
+            trg_mask = self.make_pad_mask(trg, trg) * self.make_no_peak_mask(trg, trg) # [batch_size , 1 , len_trg , len_trg]
+            # self.make_pad_mask(trg, trg) -> [batch_size , 1 , len_trg , len_trg] # 실제 값이 들어있는 부분 True
+            # self.make_no_peak_mask(trg, trg) -> [len_trg , len_trg] # 전체 1인 행렬에서 대각부분위를 0으로 만든 행렬(윗부분 참고, decoding 할때 앞부분 단어에서 값을 추론할때 뒷부분 단어는 사용하지 말고 추론해야하기때문에)
+
+            enc_src = self.encoder(src, src_mask) # enc_src -> (batch_size, length, d_model)
+            output = self.decoder(trg, enc_src, trg_mask, src_trg_mask)
+            return output
+
+        def make_pad_mask(self, q, k): # q,k -> [Batch,Length]
+            len_q, len_k = q.size(1), k.size(1)
+
+            # 참고 : https://github.com/kyungmin1212/Data_Science/blob/main/study/pytorch_code.md#5
+
+            # batch_size x 1 x 1 x len_k (unsqueeze는 강제로 그 차원에 1차원을 넣어줌)
+            k = k.ne(self.src_pad_idx).unsqueeze(1).unsqueeze(2)
+            # batch_size x 1 x len_q x len_k
+            k = k.repeat(1, 1, len_q, 1) # bx1 , 1x1 , 1xlen_1 , len_k x 1 차원이 되는것임 (repeat)
+
+            # batch_size x 1 x len_q x 1
+            q = q.ne(self.src_pad_idx).unsqueeze(1).unsqueeze(3)
+            # batch_size x 1 x len_q x len_k
+            q = q.repeat(1, 1, 1, len_k)
+
+            mask = k & q # 둘다 True일경우 True 반환 나머지는 모두 False
+            return mask
+
+        def make_no_peak_mask(self, q, k): # q,k -> [Batch,Length]
+            len_q, len_k = q.size(1), k.size(1)
+
+            # tril 은 대각선 윗부분을 0으로 만들어주는것
+            # len_q x len_k
+            mask = torch.tril(torch.ones(len_q, len_k)).type(torch.BoolTensor).to(self.device)
+
+            return mask
+    ```
+    ```python
+    def initialize_weights(m):
+        if hasattr(m, 'weight') and m.weight.dim() > 1: # m.weight.dim()는 shape의 차원수 즉 torch.size([1024,1024])-> 2,torch.Size([20,100,20,20])-> 4
+            nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
+
+        if hasattr(m,'bias') and m.bias is not None: # bias가 False일 경우는 None으로 나옴
+            nn.init.constant_(m.bias, 0)
+    
+    model = Transformer(src_pad_idx=src_pad_idx,
+                        trg_pad_idx=trg_pad_idx,
+                        trg_sos_idx=trg_sos_idx,
+                        d_model=d_model,
+                        enc_voc_size=enc_voc_size,
+                        dec_voc_size=dec_voc_size,
+                        max_len=max_len,
+                        ffn_hidden=ffn_hidden,
+                        n_head=n_heads,
+                        n_layers=n_layers,
+                        drop_prob=drop_prob,
+                        device=device).to(device)
+    model.apply(initialize_weights)
+    ```
+    - 학습
+    ```python
+    def train(model, iterator, optimizer, criterion, clip):
+        model.train()
+        epoch_loss = 0
+        for i, batch in enumerate(iterator):
+            src = batch.src # [Batch, Length]
+            trg = batch.trg # [Batch, Length]
+
+            optimizer.zero_grad()
+            output = model(src, trg[:, :-1]) ## 입력은 Batch,Length 차원으로 넣어주어야함.
+            output_reshape = output.contiguous().view(-1, output.shape[-1])
+            trg = trg[:, 1:].contiguous().view(-1)
+
+            loss = criterion(output_reshape, trg)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            print('step :', round((i / len(iterator)) * 100, 2), '% , loss :', loss.item())
+
+        return epoch_loss / len(iterator)
+
+    ```
+- 최종 정리    
+    ![](./img/Transformer_summary1.jpg)    
+    ![](./img/Transformer_summary2.jpg)    
+    ![](./img/Transformer_summary3.jpg)    
+    ![](./img/Transformer_summary4.jpg)    
+    ![](./img/Transformer_summary5.jpg)    
+    ![](./img/Transformer_summary6.jpg)    
+    ![](./img/Transformer_summary7.jpg)    
+
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 - https://github.com/hyunwoongko/transformer
