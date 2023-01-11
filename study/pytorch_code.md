@@ -390,7 +390,64 @@
     - BatchNorm2d는 초기값이 torch에 정의되어져 있지 않음 (https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm2d.html)
     - Conv2d : He 초기화 되어져 있음
     - Linear : He 초기화 되어져 있음
-    - embedding과 
+
+- transformer에서 가중치 초기화 실험결과
+    - 1번
+        ```python
+        def initialize_weights_base(m):
+            if hasattr(m, 'weight') and m.weight.dim() > 1:
+                nn.init.xavier_uniform_(m.weight.data)
+        ```
+    - 2번
+        ```python
+        def initialize_weights(m):
+            # convolution kernel의 weight를 He initialization을 적용한다.
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight.data)
+
+                # bias는 상수 0으로 초기화 한다.
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight.data)
+
+                # bias는 상수 0으로 초기화 한다.
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+        ```
+    - 단순히 1번처럼 사용하는것 보다 2번처럼 직접 작성해주는것이 보다 효율적이였음(하지만 정답은 없음 -> 선택적으로 사용)
+    - 다른 후보
+        ```python
+        def initialize_weights(m):
+            if hasattr(m, 'weight') and m.weight.dim() > 1:
+                nn.init.kaiming_uniform_(m.weight.data,nonlinearity='relu')
+        ```
+        ```python
+        def initialize_weights(m):
+            # convolution kernel의 weight를 He initialization을 적용한다.
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight.data,nonlinearity='relu')
+
+                # bias는 상수 0으로 초기화 한다.
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight.data,nonlinearity='relu')
+
+                # bias는 상수 0으로 초기화 한다.
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+        ```
 #### References
 - https://freshrimpsushi.github.io/posts/weights-initialization-in-pytorch/
 - https://gaussian37.github.io/dl-pytorch-snippets/#weight-%EC%B4%88%EA%B8%B0%ED%99%94-%EB%B0%A9%EB%B2%95-1
