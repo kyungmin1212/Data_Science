@@ -2053,7 +2053,7 @@
                 return output
         ```
 
-- 최종 모델 선언
+- 모델 선언
     ```python
     class Transformer(nn.Module):
 
@@ -2144,31 +2144,7 @@
                         device=device).to(device)
     model.apply(initialize_weights)
     ```
-    - 학습
-    ```python
-    def train(model, iterator, optimizer, criterion, clip):
-        model.train()
-        epoch_loss = 0
-        for i, batch in enumerate(iterator):
-            src = batch.src # [Batch, Length]
-            trg = batch.trg # [Batch, Length]
 
-            optimizer.zero_grad()
-            output = model(src, trg[:, :-1]) ## 입력은 Batch,Length 차원으로 넣어주어야함.
-            output_reshape = output.contiguous().view(-1, output.shape[-1])
-            trg = trg[:, 1:].contiguous().view(-1)
-
-            loss = criterion(output_reshape, trg)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
-            optimizer.step()
-
-            epoch_loss += loss.item()
-            print('step :', round((i / len(iterator)) * 100, 2), '% , loss :', loss.item())
-
-        return epoch_loss / len(iterator)
-
-    ```
 - 최종 정리    
     ![](./img/Transformer_summary1.jpg)    
     ![](./img/Transformer_summary2.jpg)    
@@ -2178,6 +2154,10 @@
     ![](./img/Transformer_summary6.jpg)    
     ![](./img/Transformer_summary7.jpg)    
 
+- 실제 학습 및 추론 코드 참고
+    - https://github.com/kyungmin1212/Data_Science/tree/main/study/code/Transformer_real.ipynb
+
 #### References
 - [boostcamp AI Tech](https://boostcamp.connect.or.kr/program_ai.html)
 - https://github.com/hyunwoongko/transformer
+- https://github.com/ndb796/Deep-Learning-Paper-Review-and-Practice/blob/master/code_practices/Attention_is_All_You_Need_Tutorial_(German_English).ipynb
