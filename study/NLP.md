@@ -6,6 +6,7 @@
 - [LSTM(Long Short-Term Memory), GRU(Gated Recurrent Unit)](#4)
 - [Sequence to Sequence with Attention](#5)
 - [Beam Search](#6)
+- [Transformer (Attention)](#7)
 ---
 
 ## #1
