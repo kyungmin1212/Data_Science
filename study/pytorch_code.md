@@ -5,7 +5,7 @@
 - [Batch Norm과 Layer Norm](#3)
 - [pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기(+ collate_fn))](#4)
 - [ne,repeat](#5)
-
+- [이미지에 패딩처리해주기 (torch.nn.functional.pad) (+collate_fn)](#6)
 ---
 
 ## #1
@@ -816,6 +816,198 @@
         '''
         ```
 
-### References
+#### References
 - https://pytorch.org/docs/stable/generated/torch.ne.html
 - https://pytorch.org/docs/stable/generated/torch.Tensor.repeat.html
+
+---
+
+## #6
+
+### 이미지에 패딩처리해주기 (torch.nn.functional.pad) (+collate_fn)
+- 코드
+    - 대표 코드 
+        ```python
+        torch.nn.functional.pad(input, pad, mode='constant', value=0)
+        ```
+    - 예시 코드
+        - pad 를 마지막 dim에만 줄 경우 (pad_left, pad_right) 모양으로 주기
+        - pad 를 마지막 2개의 dim에 줄 경우 (pad_left, pad_right, pad_top, pad_bottom) 모양으로 주기
+        - pad 를 마지막 3개의 dim에 줄 경우 (pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back) 모양으로 주기
+        - constant : 내가 설정한 값으로 패딩이 들어감
+            ```python
+            import torch.nn.functional as F
+            import torch
+
+            t4d = torch.ones((2, 3, 3, 2)) # (batch, channel, height, width)
+            print(t4d)
+
+            p1d = (1, 1) # 왼쪽에 1만큼 오른쪽에 1만큼 패딩추가
+            out = F.pad(t4d, p1d, "constant", 0) # effectively zero padding, 
+            print(out)
+            print(out.size()) 
+            '''
+            tensor([[[[1., 1.],
+                      [1., 1.],
+                      [1., 1.]],
+
+                     [[1., 1.],
+                      [1., 1.],
+                      [1., 1.]],
+
+                     [[1., 1.],
+                      [1., 1.],
+                      [1., 1.]]],
+
+
+                    [[[1., 1.],
+                      [1., 1.],
+                      [1., 1.]],
+
+                     [[1., 1.],
+                      [1., 1.],
+                      [1., 1.]],
+
+                     [[1., 1.],
+                      [1., 1.],
+                      [1., 1.]]]])
+            tensor([[[[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]],
+
+                     [[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]],
+
+                     [[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]]],
+
+
+                    [[[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]],
+
+                     [[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]],
+
+                     [[0., 1., 1., 0.],
+                      [0., 1., 1., 0.],
+                      [0., 1., 1., 0.]]]])
+            torch.Size([2, 3, 3, 4])
+            '''
+            ```
+        - replicate : pad값에 상관없이 제일 가장자리에있는 값으로 패딩해서 들어감 (단 replicate는 2d부터 지원,1d만 늘리고싶으면 넣지 않을곳은 0으로 넣어주면 됨)
+            ```python
+            import torch.nn.functional as F
+            import torch
+
+            t4d = torch.Tensor(2, 3, 3, 2) # (batch, channel, height, width)
+            print(t4d)
+
+            # replicate
+            p1d = (2, 2,0,0) 
+            out = F.pad(t4d, p1d, "replicate",0) # effectively zero padding, 
+            print(out)
+
+            '''
+            tensor([[[[1.9006e-35, 0.0000e+00],
+                      [3.1529e-43, 0.0000e+00],
+                      [1.9234e-35, 0.0000e+00]],
+
+                     [[1.2057e+17, 4.5698e-41],
+                      [       nan, 0.0000e+00],
+                      [4.4721e+21, 3.9891e+24]],
+
+                     [[4.1996e+12, 7.5338e+28],
+                      [1.5975e-43, 0.0000e+00],
+                      [0.0000e+00, 0.0000e+00]]],
+
+
+                    [[[2.2561e-43, 0.0000e+00],
+                      [1.9234e-35, 0.0000e+00],
+                      [1.2057e+17, 4.5698e-41]],
+
+                     [[       nan, 0.0000e+00],
+                      [4.4721e+21, 2.3079e+20],
+                      [6.2689e+22, 4.7428e+30]],
+
+                     [[0.0000e+00, 0.0000e+00],
+                      [9.1845e-41, 1.3079e+22],
+                      [1.3593e-43, 0.0000e+00]]]])
+
+            tensor([[[[1.9006e-35, 1.9006e-35, 1.9006e-35, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [3.1529e-43, 3.1529e-43, 3.1529e-43, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [1.9234e-35, 1.9234e-35, 1.9234e-35, 0.0000e+00, 0.0000e+00, 0.0000e+00]],
+
+                     [[1.2057e+17, 1.2057e+17, 1.2057e+17, 4.5698e-41, 4.5698e-41, 4.5698e-41],
+                      [       nan,        nan,        nan, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [4.4721e+21, 4.4721e+21, 4.4721e+21, 3.9891e+24, 3.9891e+24, 3.9891e+24]],
+
+                     [[4.1996e+12, 4.1996e+12, 4.1996e+12, 7.5338e+28, 7.5338e+28, 7.5338e+28],
+                      [1.5975e-43, 1.5975e-43, 1.5975e-43, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00]]],
+
+
+                    [[[2.2561e-43, 2.2561e-43, 2.2561e-43, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [1.9234e-35, 1.9234e-35, 1.9234e-35, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [1.2057e+17, 1.2057e+17, 1.2057e+17, 4.5698e-41, 4.5698e-41, 4.5698e-41]],
+
+                     [[       nan,        nan,        nan, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [4.4721e+21, 4.4721e+21, 4.4721e+21, 2.3079e+20, 2.3079e+20, 2.3079e+20],
+                      [6.2689e+22, 6.2689e+22, 6.2689e+22, 4.7428e+30, 4.7428e+30, 4.7428e+30]],
+
+                     [[0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00],
+                      [9.1845e-41, 9.1845e-41, 9.1845e-41, 1.3079e+22, 1.3079e+22, 1.3079e+22],
+                      [1.3593e-43, 1.3593e-43, 1.3593e-43, 0.0000e+00, 0.0000e+00, 0.0000e+00]]]])
+            '''
+            ```
+- 실전 코드 
+    - 데이터의 이미지 크기가 다른경우가 존재하는데 이 데이터를 무조건 resize를 하게 된다면 이미지의 비율이 깨져 문제가 발생할수 있음
+    - 예를 들어 종이에 써진 글씨를 체크하는 ocr task를 할때 무작정으로 resize를 하게되면 원본 이미지가 비율이 이상해져서 학습이 잘못될수도 있음
+    - collate_fn에서 해결가능
+        - 배치별로 이미지 크기를 다르게 하고 싶은 경우
+            ```python
+            def collate_fn(batch):
+                img_batch, tgt_batch = [], []
+                
+                max_w = 0
+                max_h = 0
+                for img, tgt_sample in batch:
+                    w = img.size(2)
+                    h = img.size(1)
+                    if w>max_w:
+                        max_w = w
+                    if h>max_h:
+                        max_h = h
+                    tgt_batch.append(tgt_sample)
+
+                for img, _ in batch:
+                    w= img.size(2)
+                    h= img.size(1)
+                    new_img = torch.nn.functional.pad(img, (0,max_w-w,0,max_h-h), mode='replicate')
+                    img_batch.append(new_img)
+
+                tgt_batch = pad_sequence(tgt_batch,batch_first=True, padding_value=0)
+                return torch.stack(img_batch), tgt_batch
+            ```
+        - 모든 이미지 크기를 동일하게 하고 싶은 경우(미리 max_w,max_h 지정해놔야함)
+            ```python
+            def collate_fn(batch):
+                img_batch, tgt_batch = [], []
+                
+                for img, tgt_sample in batch:
+                    w = img.size(2)
+                    h = img.size(1)
+                    new_img = torch.nn.functional.pad(img, (0,max_w-w,0,max_h-h), mode='replicate')
+                    img_batch.append(new_img)
+                    tgt_batch.append(tgt_sample)
+                    
+
+                tgt_batch = pad_sequence(tgt_batch,batch_first=True, padding_value=0)
+                return torch.stack(img_batch), tgt_batch
+            ```
+#### References
+- https://hichoe95.tistory.com/116
+- https://pytorch.org/docs/stable/generated/torch.nn.functional.pad.html#torch.nn.functional.pad
