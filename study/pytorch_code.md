@@ -6,6 +6,8 @@
 - [pad_sequence(길이가 다른 데이터를 하나의 텐서로 묶어주기(+ collate_fn))](#4)
 - [ne,repeat](#5)
 - [이미지에 패딩처리해주기 (torch.nn.functional.pad) (+collate_fn)](#6)
+- [argmax와 topk](#7)
+
 ---
 
 ## #1
@@ -1011,3 +1013,59 @@
 #### References
 - https://hichoe95.tistory.com/116
 - https://pytorch.org/docs/stable/generated/torch.nn.functional.pad.html#torch.nn.functional.pad
+
+---
+
+## #7
+
+### argmax와 topk
+- argmax는 인덱스 값중에서 제일 큰 값만 남겨줌
+    - 코드
+        ```python
+        a = torch.randn(4, 4)
+        print(a)
+        print(torch.argmax(a,dim=-1))
+        print(a.argmax(-1))
+        '''
+        tensor([[ 0.5596, -0.1956, -1.8283,  0.9479],
+                [ 1.3220, -0.9693,  0.0772,  0.3041],
+                [ 1.9671,  0.2095,  1.2014, -0.8649],
+                [-0.7770,  0.5726,  1.1960, -0.7411]])
+        tensor([3, 0, 0, 2])
+        tensor([3, 0, 0, 2])
+        '''
+        ```
+- topk : argmax는 한차원이 감소하는 반면 topk는 입력텐서와 동일한 차원으로 결과가 나옴(value와 index 모두 반환)
+    - 코드
+        ```python
+        x = torch.randn(4, 4)
+        print(x)
+        print(torch.topk(x, 3))
+        print(torch.topk(x,3)[0],torch.topk(x,3)[1])
+        '''
+        tensor([[-0.7079,  1.4738, -0.8523, -0.6596],
+                [ 0.2957, -0.2204,  0.3734,  0.0425],
+                [ 1.2357, -0.4194, -0.8848,  0.1949],
+                [ 0.2156, -1.0695,  0.7949, -0.0830]])
+        torch.return_types.topk(
+                values=tensor([[ 1.4738, -0.6596, -0.7079],
+                                [ 0.3734,  0.2957,  0.0425],
+                                [ 1.2357,  0.1949, -0.4194],
+                                [ 0.7949,  0.2156, -0.0830]]),
+                indices=tensor([[1, 3, 0],
+                                [2, 0, 3],
+                                [0, 3, 1],
+                                [2, 0, 3]]))
+        tensor([[ 1.4738, -0.6596, -0.7079],
+                [ 0.3734,  0.2957,  0.0425],
+                [ 1.2357,  0.1949, -0.4194],
+                [ 0.7949,  0.2156, -0.0830]]) 
+        tensor([[1, 3, 0],
+                [2, 0, 3],
+                [0, 3, 1],
+                [2, 0, 3]])
+        '''
+        ```
+#### References
+- https://pytorch.org/docs/stable/generated/torch.argmax.html
+- https://pytorch.org/docs/stable/generated/torch.topk.html
