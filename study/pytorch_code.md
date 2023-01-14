@@ -1205,6 +1205,8 @@
 #### References
 - https://wikidocs.net/60572
 
+---
+
 ## #11
 
 ### torch.nn 과 torch.nn.functional의 차이점
