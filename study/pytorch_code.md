@@ -908,7 +908,7 @@
 
             # replicate
             p1d = (2, 2,0,0) 
-            out = F.pad(t4d, p1d, "replicate",0) # effectively zero padding, 
+            out = F.pad(t4d, p1d, "replicate",0) # replicate는 value에 상관없이 제일 가장자리값으로 채워짐
             print(out)
 
             '''
