@@ -1010,6 +1010,42 @@
                 tgt_batch = pad_sequence(tgt_batch,batch_first=True, padding_value=0)
                 return torch.stack(img_batch), tgt_batch
             ```
+    - 이미지를 transformer에 적용할경우 mask까지 생각가능함(이미지에서 패딩처리된부분을 체크해주기)
+        ```python
+        def collate_fn(batch):
+            img_batch, tgt_batch = [], []
+            pad_mask_batch =[]
+            max_w = 0
+            for img, tgt_sample in batch:
+                w = img.size(2)
+                if w>max_w:
+                    max_w=w        
+                tgt_batch.append(tgt_sample)
+            if max_w%4!=0:
+                max_w+=(4-max_w%4)
+            for img, _ in batch:
+                w= img.size(2)
+                new_img = torch.nn.functional.pad(img, (0,max_w-w,0,0), mode='replicate', value=0)
+                pad_mask_batch.append(max_w-w)
+                img_batch.append(new_img)
+
+            tgt_batch = pad_sequence(tgt_batch,batch_first=True, padding_value=0)
+            return torch.stack(img_batch), tgt_batch , pad_mask_batch
+        ```
+        - 트레인 부분에서 아래와 같이 처리
+        ```python
+        for i, batch in enumerate(tqdm(iterator)):
+            image = batch[0].to(device) # Batch,channel,height,width
+            text = batch[1].to(device) # Batch,Lenght
+            pad_mask = batch[2]
+            batch_w = image.size(-1)
+            batch_img_mask=[]
+            for pad_len in pad_mask:
+                img_mask = [1 for _ in range(batch_w//4-pad_len//4)]+[0 for _ in range(pad_len//4)]
+                batch_img_mask.append(img_mask)
+            batch_img_mask=torch.LongTensor(batch_img_mask).to(device)
+
+        ```
 #### References
 - https://hichoe95.tistory.com/116
 - https://pytorch.org/docs/stable/generated/torch.nn.functional.pad.html#torch.nn.functional.pad
