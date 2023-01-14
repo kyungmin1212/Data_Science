@@ -1105,6 +1105,18 @@
                 [2, 0, 3]])
         '''
         ```
+- 예시 코드
+    ```python
+    import torch
+    
+    x = torch.randn(4,4,8) # batch,length,dmension
+    print(x)
+    print(x.topk(3))
+    print(torch.topk(x,3)[0])
+    print(torch.topk(x,3)[1][:,-1]) # batch,3 , 배치에서 마지막 단어들의 가능성높은 인덱스 3개씩 추출
+    print(torch.topk(x,3)[1][:,-1][:,0]) # batch , 제일 점수 높은것
+    print(torch.topk(x,3)[1][:,-1][:,1]) # batch , 두번째 점수 높은것
+    ```
 #### References
 - https://pytorch.org/docs/stable/generated/torch.argmax.html
 - https://pytorch.org/docs/stable/generated/torch.topk.html
