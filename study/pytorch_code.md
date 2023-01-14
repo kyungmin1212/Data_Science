@@ -7,7 +7,10 @@
 - [ne,repeat](#5)
 - [이미지에 패딩처리해주기 (torch.nn.functional.pad) (+collate_fn)](#6)
 - [argmax와 topk](#7)
-
+- [cat과 stack](#8)
+- [연산 뒤에 `_`을 붙일 경우](#9)
+- [softmax, log_softmax, nll_loss, cross_entropy](#10)
+- [torch.nn 과 torch.nn.functional의 차이점](#11)
 ---
 
 ## #1
@@ -1105,3 +1108,129 @@
 #### References
 - https://pytorch.org/docs/stable/generated/torch.argmax.html
 - https://pytorch.org/docs/stable/generated/torch.topk.html
+
+---
+
+## #8
+
+### cat과 stack
+- cat
+    - 두개의 텐서를 어떤 차원으로 늘려줄지를 결정함
+    - (2,2)와 (2,2) 크기의 텐서가 있을 경우 `torch.cat([a,b],dim=0)`을 할 경우 (4,2)가 되고 `torch.cat([a,b],dim=1)`을 하게 되면 (2,4)가 됨
+    - 코드
+        ```python
+        x = torch.FloatTensor([[1, 2], [3, 4]])
+        y = torch.FloatTensor([[5, 6], [7, 8]])
+        print(torch.cat([x, y], dim=0))
+        print(torch.cat([x, y], dim=1))
+        '''
+        tensor([[1., 2.],
+                [3., 4.],
+                [5., 6.],
+                [7., 8.]])
+        tensor([[1., 2., 5., 6.],
+                [3., 4., 7., 8.]])
+        '''
+        ```
+- stack
+    - stack은 특정차원을 추가로 생성시켜서 그 차원으로 쌓음
+    - x,y,z가 전부 (2,)의 크기를 가질 경우 `torch.stack([x,y,z],dim=0)`을 할 경우 (3,2)가 되고, `torch.cat([x,y,z],dim=1)`을 하게 되면 (2,3)이 됨.
+    - 즉 `torch.stack([x,y,z],dim=0)` = `torch.cat([x.unsqueeze(0),y.unsqueeze(0),z.unsqueeze(0)],dim=0)` 임
+    - 코드
+        ```python
+        x = torch.FloatTensor([1, 4])
+        y = torch.FloatTensor([2, 5])
+        z = torch.FloatTensor([3, 6])
+        print(torch.stack([x, y, z]))
+        print(torch.stack([x, y, z], dim=1))
+        '''
+        tensor([[1., 4.],
+                [2., 5.],
+                [3., 6.]])
+        tensor([[1., 2., 3.],
+                [4., 5., 6.]])
+        '''
+        ```
+#### References
+- https://wikidocs.net/52846
+
+---
+## #9
+
+### 연산 뒤에 `_`을 붙일 경우
+- 연산 뒤에 `_`를 붙일경우 덮어쓰기 연산이 됨 (마치 판다스에서 inplace=True와 같음)
+- 코드
+    ```python
+    x = torch.FloatTensor([[1, 2], [3, 4]])
+    print(x.mul(2.)) # 곱하기 2를 수행한 결과를 출력
+    print(x) # 기존의 값 출력
+    print(x.mul_(2.))  # 곱하기 2를 수행한 결과를 변수 x에 값을 저장하면서 결과를 출력
+    print(x) # 변경된 값 출력
+    '''
+    tensor([[2., 4.],
+            [6., 8.]])
+    tensor([[1., 2.],
+            [3., 4.]])
+    tensor([[2., 4.],
+            [6., 8.]])
+    tensor([[2., 4.],
+            [6., 8.]])
+    '''
+    ```
+
+#### References
+- https://wikidocs.net/52846
+
+---
+
+## #10
+
+### softmax, log_softmax, nll_loss, cross_entropy
+- softmax
+    - 전체클래스의 확률의 합을 1로 만들어주기 위함.(자연상수 이용)
+    -  $cost(W) = -\sum_{j=1}^{k}y_{j}\ log(p_{j})$ 
+- cross_entropy(분류)
+    - n개의 데이터에 대해서 각각의 데이터에 대한 정답이 k차원을 가지는 원핫 벡터로 표현이 됨
+    - 이때 i번째 데이터에 대해서 j번째 클래스가 정답이라면 $y_j$ 는 1일 것이고 그때 예측한 값이 $p_j$ 가 있을 것인데 $y_j$ 가 1이므로 $p_j$ 도 1에 가깝도록 학습이 진행되어야함.
+    - 따라서 loss 함수는 최소지점을 가는것을 목표로 하기때문에 전체 loss함수에 -를 붙이고 $p_j$ 가 1에 가까울수록 0에 다가가는 log 함수를 사용함(0에 가까울수록 -inf에 가까워짐)
+    - 정답 클래스에 대해서 예측확률값이 1에 가까워지도록 학습이 진행됨
+    -  $cost(W) = -\frac{1}{n} \sum_{i=1}^{n} \sum_{j=1}^{k}y_{j}^{(i)}\ log(p_{j}^{(i)})$ 
+
+- 파이토치에서 주의할 점
+    - cross_entropy는 F.log_softmax() + F.nll_loss()가 같이 적용된 경우(nll_loss는 위 수식에서 log를 빼고 $p_j를 구할때 소프트맥스를 적용하지 않고 나온 결과값을 적용했을 경우를 말함)
+    - `F.cross_entropy = F.log_softmax() + F.nll_loss()`
+    - 즉 cross_entropy를 사용한다면 모델 마지막 단에 softmax를 적용할 필요가 없음.
+    - 참고 : F.softmax() + torch.log() = F.log_softmax()
+
+#### References
+- https://wikidocs.net/60572
+
+## #11
+
+### torch.nn 과 torch.nn.functional의 차이점
+- torch.nn은 클래스, torch.nn.functional은 함수
+- torch.nn은 인스턴스화를 먼저 시켜놓고 사용해야함
+- torch.nn.functional 같은 경우는 forward부분에서 바로 적용가능
+- 예시 코드
+    ```python
+    import torch
+    import torch.nn as nn
+
+    loss = nn.CrossEntropyLoss()
+    input = torch.randn(3, 5, requires_grad=True)
+    target = torch.empty(3, dtype=torch.long).random_(5)
+    output = loss(input, target)
+    output.backward()
+    ```
+    ```python
+    import torch
+    import torch.nn.functional as F
+
+    input = torch.randn(3, 5, requires_grad=True)
+    target = torch.randint(5, (3,), dtype=torch.int64)
+    loss = F.cross_entropy(input, target)
+    loss.backward()
+    ```
+
+#### References
+- https://cvml.tistory.com/10
