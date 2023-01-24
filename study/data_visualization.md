@@ -106,7 +106,7 @@
         fig.add_trace(wma480,row=2,col=1)
         fig.add_trace(wma820,row=2,col=1)
 
-        # 구매한 시점의 가격 표시
+        # up , down 표시
         for idx in df_org_test.index[:1440]:
             if df_org_test.loc[idx,'check_3']=='Up':
                 fig.add_annotation(
