@@ -123,7 +123,7 @@
 
         fig.show()
         ```    
-        ![](./img/plotly.jpg)    
+        ![](./img/plotly1.jpg)    
 
 #### References
 - https://plotly.com/python/
