@@ -72,6 +72,7 @@
             return ans
         
         df_org_test['check_3']= df_org_test.transpose().apply(lambda x:get_up_down(x))
+        # df_org_test['check_3']= df_org_test.apply(lambda x:get_up_down(x),axis=1)
         ```
     - 실제 코드
         ```python
